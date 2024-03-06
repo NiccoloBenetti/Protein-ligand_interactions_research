@@ -1,1 +1,4 @@
 build/
+src/test.txt
+src/main.exe
+.vscode/
