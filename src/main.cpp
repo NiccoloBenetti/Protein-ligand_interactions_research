@@ -11,6 +11,35 @@
 #include <GraphMol/RDKitBase.h>
 #include <GraphMol/Descriptors/MolDescriptors.h>
 
+void printMolOverview(RDKit::RWMol* mol, bool smiles) {
+    if (!mol) {
+        std::cout << "Molecola non valida." << std::endl;
+        return;
+    }
+
+    // Numero di atomi
+    std::cout << "Numero di atomi: " << mol->getNumAtoms() << std::endl;
+
+    // Numero di legami
+    std::cout << "Numero di legami: " << mol->getNumBonds() << std::endl;
+
+    /*
+    // Formula molecolare
+    std::string formula = RDKit::Descriptors::calcMolFormula(*mol);
+    std::cout << "Formula molecolare: " << formula << std::endl;
+
+    // Peso molecolare
+    double mw = RDKit::Descriptors::calcExactMW(*mol);
+    std::cout << "Peso molecolare: " << mw << std::endl;
+    */
+
+    // Rappresentazione SMILES
+    if(smiles){
+        std::string smiles = RDKit::MolToSmiles(*mol);
+        std::cout << "SMILES: " << smiles << std::endl;
+    }
+}
+
 // input(char**, int, RDKit::RWMol**) : takes the command line arguments (files names and number or arguments) 
 // and does the parsing for each file saving a pointer to a RWMol in the last parameter (an array of RWMol passed by ref) 
 void input(char **argv, int argc, RDKit::RWMol **molArray) {
@@ -55,8 +84,7 @@ void input(char **argv, int argc, RDKit::RWMol **molArray) {
                 *(molArray + sizeof(RDKit::RWMol) * i) = mol;
             }
 
-            
-
+            printMolOverview(mol, false);
 
             free(fileContent);
         }
