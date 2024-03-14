@@ -8,7 +8,7 @@
 #include <GraphMol/FileParsers/FileParsers.h>
 #include <GraphMol/Atom.h>
 #include <GraphMol/Bond.h>
-#include <GraphMol/RWMol.h>
+#include <GraphMol/ROMol.h>
 #include <GraphMol/RDKitBase.h>
 #include <GraphMol/Descriptors/MolDescriptors.h>
 
@@ -33,42 +33,35 @@ SMARTSPattern smartsPatterns[] = {
     {"chelated", 1, "[O,#7&!$([nX3])&!$([NX3]-*=[!#6])&!$([NX3]-[a])&!$([NX4]),-{1-};!+{1-}]"}
 };
 
-void printMolOverview(RDKit::RWMol* mol, bool smiles) {
-    if (!mol) {
-        std::cout << "Molecola non valida." << std::endl;
-        return;
-    }
-
+void printMolOverview(RDKit::ROMol mol, bool smiles) {
     // Numero di atomi
-    std::cout << "Numero di atomi: " << mol->getNumAtoms() << std::endl;
+    std::cout << "Numero di atomi: " << mol.getNumAtoms() << std::endl;
 
     // Numero di legami
-    std::cout << "Numero di legami: " << mol->getNumBonds() << std::endl;
+    std::cout << "Numero di legami: " << mol.getNumBonds() << std::endl;
 
     /*
     // Formula molecolare
-    std::string formula = RDKit::Descriptors::calcMolFormula(*mol);
+    std::string formula = RDKit::Descriptors::calcMolFormula(mol);
     std::cout << "Formula molecolare: " << formula << std::endl;
 
     // Peso molecolare
-    double mw = RDKit::Descriptors::calcExactMW(*mol);
+    double mw = RDKit::Descriptors::calcExactMW(mol);
     std::cout << "Peso molecolare: " << mw << std::endl;
     */
 
     // Rappresentazione SMILES
     if(smiles){
-        std::string smiles = RDKit::MolToSmiles(*mol);
+        std::string smiles = RDKit::MolToSmiles(mol);
         std::cout << "SMILES: " << smiles << std::endl;
     }
 }
 
-// input(char**, int, RDKit::RWMol**) : takes the command line arguments (files names and number or arguments) 
-// and does the parsing for each file saving a pointer to a RWMol in the last parameter (an array of RWMol passed by ref) 
-void input(char **argv, int argc, RDKit::RWMol **molArray) {
+// input(char**, int, std::vector<RDKit::ROMol> &) : takes the command line arguments (files names and number or arguments) 
+// and does the parsing for each file saving a ROMol in the last parameter (a vector of ROMol passed by ref) 
+void input(char **argv, int argc, std::vector<RDKit::ROMol> &molVector) {
     FILE *file;
     char *fileContent = NULL;
-    
-    *molArray = (RDKit::RWMol*)malloc(sizeof(RDKit::RWMol) * (argc - 1));
 
     for(int i = 1; i < argc; i++){
         file = fopen(argv[i], "rb");
@@ -93,20 +86,18 @@ void input(char **argv, int argc, RDKit::RWMol **molArray) {
 
             fclose(file);
 
-            RDKit::RWMol* mol;
+            RDKit::ROMol* mol;
 
             if(i == 1){  // if file is a PDB
-                //molArray[i-1] = RDKit::PDBBlockToMol(fileContent, true, false);  ||TODO: understand why this approach doesn not work
                 mol = RDKit::PDBBlockToMol(fileContent, true, false);
-                *(molArray) = mol;
+                molVector.push_back(*mol);
             }
             else{
-                //molArray[i-1] = RDKit::Mol2BlockToMol(fileContent, true, false);
                 mol = RDKit::Mol2BlockToMol(fileContent, true, false);
-                *(molArray + sizeof(RDKit::RWMol) * i) = mol;
+                molVector.push_back(*mol);
             }
 
-            printMolOverview(mol, false);
+            printMolOverview(*mol, false);
 
             free(fileContent);
         }
@@ -115,7 +106,7 @@ void input(char **argv, int argc, RDKit::RWMol **molArray) {
 
 int main(int argc, char *argv[]) {  // First argument: PDB file, then a non fixed number of Mol2 files
 
-    RDKit::RWMol* molArray; // Array where the RWMol pointers will be saved after calling input(...)
+    std::vector<RDKit::ROMol> molVector; // Vector of all the molecules (the first element is always a protein, the other are ligands)
 
     // Prints the files passed from line (argc, argv)
     if(argc >= 2){
@@ -126,9 +117,7 @@ int main(int argc, char *argv[]) {  // First argument: PDB file, then a non fixe
         }
     }
 
-    input(argv, argc, &molArray);
-
-    free(molArray);
+    input(argv, argc, molVector);
 
     return EXIT_SUCCESS;
 }
