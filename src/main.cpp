@@ -11,6 +11,7 @@
 #include <GraphMol/ROMol.h>
 #include <GraphMol/RDKitBase.h>
 #include <GraphMol/Descriptors/MolDescriptors.h>
+#include <GraphMol/Substruct/SubstructMatch.h>
 
 
 struct SMARTSPattern {
@@ -18,6 +19,12 @@ struct SMARTSPattern {
     int numAtoms;
     std::string smartsString;
 };
+
+struct MatchStruct{
+    SMARTSPattern pattern;
+    std::vector<RDKit::MatchVectType> matches; // Vector of vectors of pairs. Its a vector of all the matchings of a same known pattern found in a mol, the pairs are the atoms of mol and of the target that matches
+};
+
 
 SMARTSPattern smartsPatterns[] = {
     {"hydrophobic", 1, "[c,s,Br,I,S&H0&v2,$([D3,D4;#6])&!$([#6]~[#7,#8,#9])&!$([#6X4H0]);+0]"},
@@ -32,6 +39,8 @@ SMARTSPattern smartsPatterns[] = {
     {"metal", 1, "[Ca,Cd,Co,Cu,Fe,Mg,Mn,Ni,Zn]"},
     {"chelated", 1, "[O,#7&!$([nX3])&!$([NX3]-*=[!#6])&!$([NX3]-[a])&!$([NX4]),-{1-};!+{1-}]"}
 };
+
+const int smartsPatternsCount = sizeof(smartsPatterns) / sizeof(SMARTSPattern);
 
 void printMolOverview(RDKit::ROMol mol, bool smiles) {
     // Numero di atomi
@@ -104,9 +113,52 @@ void input(char **argv, int argc, std::vector<RDKit::ROMol> &molVector) {
     }
 }
 
+// populates the vector of MatchStruct with the know patterns found in mol 
+void identifySubstructs(RDKit::ROMol mol, SMARTSPattern patterns[], int patternsCount, std::vector<MatchStruct> &matches){
+    RDKit::ROMol* patternMol;
+    bool foundMatch;
+
+    for(int i = 0; i < patternsCount; i++){
+        std::vector<RDKit::MatchVectType> tmpMatchesVector;
+        MatchStruct tmpStruct;
+
+        patternMol = RDKit::SmartsToMol(smartsPatterns[i].smartsString);
+
+        foundMatch = RDKit::SubstructMatch(mol, *patternMol, tmpMatchesVector, true, false);
+
+        if(foundMatch){
+            tmpStruct.pattern = smartsPatterns[i];
+            tmpStruct.matches = tmpMatchesVector;
+            matches.push_back(tmpStruct);
+        }
+    }
+}
+
+void printFoundPatterns(std::vector<MatchStruct> foundPatterns){
+    std::cout << "Found patterns [" << foundPatterns.size() << "]: "<< std::endl;
+
+    for(int i = 0; i < foundPatterns.size(); i++){
+        std::cout << " ------ " << foundPatterns.at(i).pattern.name << " ------ " << std::endl;
+
+        for(int j = 0; j < foundPatterns.at(i).matches.size(); j++){
+            std::cout << "    " << j+1 << std::endl;
+
+            for(int k = 0; k < foundPatterns.at(i).matches.at(j).size(); k++){
+                std::cout << "        " << "First A: " << foundPatterns.at(i).matches.at(j).at(k).first << " Second A: " << foundPatterns.at(i).matches.at(j).at(k).second << std::endl;
+            }
+        }
+
+        std::cout << std::endl;
+        std::cout << std::endl;
+    }
+}
+
 int main(int argc, char *argv[]) {  // First argument: PDB file, then a non fixed number of Mol2 files
 
     std::vector<RDKit::ROMol> molVector; // Vector of all the molecules (the first element is always a protein, the other are ligands)
+
+    std::vector<MatchStruct> proteinMatches; // Every element of this vector rapresent a known pattern recognised in the protein, for every element there is a list of matches (see MatchStruct)
+    std::vector<MatchStruct> ligandMatches;
 
     // Prints the files passed from line (argc, argv)
     if(argc >= 2){
@@ -118,6 +170,18 @@ int main(int argc, char *argv[]) {  // First argument: PDB file, then a non fixe
     }
 
     input(argv, argc, molVector);
+
+    identifySubstructs(molVector.at(0), smartsPatterns, smartsPatternsCount, proteinMatches); //identifica substructs proteina
+    printFoundPatterns(proteinMatches);
+    
+    identifySubstructs(molVector.at(1), smartsPatterns, smartsPatternsCount, ligandMatches); //identifica substructs ligando
+    printFoundPatterns(ligandMatches);
+
+    // for(int i = 1; i < argc - 1; i++){ //per ogni ligando
+    //     identifySubstructs(molVector.at(i), smartsPatterns, smartsPatternsCount, ligandMatches, ligandMatchesPatterns); //identifica substruct ligando
+    //     //identifyInteractions(); //individua tutte le interazioni tra proteina e ligando e le accoda al file CSV
+    //     //pulisci ligandMatches e ligandMatchesPatterns
+    // } 
 
     return EXIT_SUCCESS;
 }
