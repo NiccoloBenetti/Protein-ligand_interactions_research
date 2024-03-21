@@ -2,6 +2,7 @@
 #include <iostream>
 #include <cstdio> 
 #include <string>
+#include <fstream>
 #include <GraphMol/GraphMol.h>
 #include <GraphMol/SmilesParse/SmilesParse.h>
 #include <GraphMol/SmilesParse/SmilesWrite.h>
@@ -202,6 +203,27 @@ void printFoundPatterns(std::vector<MatchStruct> foundPatterns){
         std::cout << std::endl;
     }
 }
+//takes input all the values as parameters and prints on the CSV file passed by reference NB.might be necessary to escape the strings if there can be "," in them
+void output(std::string ligandName, std::string proteinAtomId, std::string proteinPattern, float proteinX, float proteinY, float proteinZ, std::string ligandAtomId, std::string ligandPattern, float ligandX, float ligandY, float ligandZ, std::string interactionType, float interactionDistance, std::ofstream &outputFile){
+    if (outputFile.is_open()){
+        outputFile << ligandName << ","
+                   << proteinAtomId << ","
+                   << proteinPattern << ","
+                   << proteinX << ","
+                   << proteinY << ","
+                   << proteinZ << ","
+                   << ligandAtomId << ","
+                   << ligandPattern << ","
+                   << ligandX << ","
+                   << ligandY << ","
+                   << ligandZ << ","
+                   << interactionType << ","
+                   << interactionDistance << "\n";
+    }
+    else {
+        std::cerr << "File was not open correctly for writing." << std::endl;
+    }
+}
 
 int main(int argc, char *argv[]) {  // First argument: PDB file, then a non fixed number of Mol2 files
 
@@ -224,6 +246,30 @@ int main(int argc, char *argv[]) {  // First argument: PDB file, then a non fixe
     identifySubstructs(molVector.at(0), smartsPatterns, smartsPatternsCount, proteinMatches); // Identifica substructs proteina
     printFoundPatterns(proteinMatches);
 
+    //the CSV file is created and inicialized with the HEADER line in the main
+    std::ofstream outputFile("interactions.csv",std::ios::out);
+    if (outputFile.is_open()){
+        outputFile << "LIGAND_NAME,PROTEIN_ATOM_ID,PROTEIN_PATTERN,PROTEIN_X,PROTEIN_Y,PROTEIN_Z,LIGAND_ATOM_ID,LIGAND_PATTERN,LIGAND_X,LIGAND_Y,LIGAND_Z,INTERACTION_TYPE,INTERACTION_DISTANCE" <<std::endl;
+        outputFile.close();
+        std::cout << "File interactions.csv succesfuly created." <<std::endl;
+    }
+    else{
+        std::cerr << "Error while creating CSV file." << std::endl;
+    }
+
+    /*To print on CSV file with output function use:
+    outputFile.open("interactions.csv", std::ios::app);
+    output(ligandName, proteinAtomId, proteinPattern, proteinX, proteinY, proteinZ,
+       ligandAtomId, ligandPattern, ligandX, ligandY, ligandZ,
+       interactionType, interactionDistance, outputFile);
+    outputFile.close();
+    */
+
+    // for(int i = 1; i < argc - 1; i++){ //per ogni ligando
+    //     identifySubstructs(molVector.at(i), smartsPatterns, smartsPatternsCount, ligandMatches, ligandMatchesPatterns); //identifica substruct ligando
+    //     //identifyInteractions(); //individua tutte le interazioni tra proteina e ligando e le accoda al file CSV
+    //     //pulisci ligandMatches e ligandMatchesPatterns
+    // } 
 
 
     for(int i = 1; i < argc - 1; i++){ // Per ogni ligando
