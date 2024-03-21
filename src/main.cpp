@@ -25,6 +25,11 @@ struct MatchStruct{
     std::vector<RDKit::MatchVectType> matches; // Vector of vectors of pairs. Its a vector of all the matchings of a same known pattern found in a mol, the pairs are the atoms of mol and of the target that matches
 };
 
+struct PossibleInteraction{
+    std::string name;
+    std::vector<std::string> interactonPatterns; 
+};
+
 
 SMARTSPattern smartsPatterns[] = {
     {"hydrophobic", 1, "[c,s,Br,I,S&H0&v2,$([D3,D4;#6])&!$([#6]~[#7,#8,#9])&!$([#6X4H0]);+0]"},
@@ -41,6 +46,18 @@ SMARTSPattern smartsPatterns[] = {
 };
 
 const int smartsPatternsCount = sizeof(smartsPatterns) / sizeof(SMARTSPattern);
+
+PossibleInteraction possibleInteractions[] = {
+    {"Hydrophobic interaction", {"hydrophobic", "hydrophobic"}},
+    {"Hydrogen bond", {"hydrogen_donor-H", "hydrogen_acceptor"}},
+    {"Halogen bond", {"halogen_donor-halogen", "halogen_acceptor-any"}},
+    {"Ionic interaction (cation ... anion)", {"cation", "anion"}},
+    {"Ionic interaction (cation ... aromatic_ring)", {"cation", "aromatic_ring"}},
+    {"Pi stacking", {"aromatic_ring", "aromatic_ring"}},
+    {"Metal coordination", {"metal", "chelated"}}
+};
+
+const int possibleInteractionsCount = sizeof(possibleInteractions) / sizeof(PossibleInteraction);
 
 void printMolOverview(RDKit::ROMol mol, bool smiles) {
     // Numero di atomi
@@ -113,6 +130,39 @@ void input(char **argv, int argc, std::vector<RDKit::ROMol> &molVector) {
     }
 }
 
+bool contains(std::vector<std::string> vec, std::string str){
+    for(int i = 0; i < vec.size(); i++){
+        if(vec.at(i) == str)
+            return true;
+    }
+    return false;
+}
+
+bool isInteractionPossible(MatchStruct firstPattern, MatchStruct secondPattern, PossibleInteraction interactions[], int interactionsCount){
+    for(int i = 0; i < interactionsCount; i++){
+        if(contains(interactions[i].interactonPatterns, firstPattern.pattern.name) && contains(interactions[i].interactonPatterns, secondPattern.pattern.name)){ //TODO : È SBAGLIATA PERCHE PER OGNI ELEMENTO TROVATO DOVREBBE TOGLIERLO DALLA LISTA DA CUI SI CERCA DOPO
+            std::cout << firstPattern.pattern.name << " " << secondPattern.pattern.name << std::endl;
+            return true;
+        }
+    }
+
+    return false;
+}
+
+void identifyInteractions(std::vector<MatchStruct> proteinMatches, std::vector<MatchStruct> ligandMatches){
+    for(int i = 0; i < proteinMatches.size(); i++){         // | This double for compares every element in proteinMatches with 
+        for(int j = 0; j < ligandMatches.size(); j++){      // | every element in ligandMatches
+            if(isInteractionPossible(proteinMatches.at(i), ligandMatches.at(j), possibleInteractions, possibleInteractionsCount)){
+                for(int k = 0; k < proteinMatches.at(i).matches.size(); k++){      // | Found a compatible pair of MatchStruct, one of the protein and one of the ligand, this double for compares every element
+                    for(int s = 0; s < ligandMatches.at(j).matches.size(); s++){   // | of a MatchStruct.matches with every element of the second MatchStruct.matches
+                        //retInteraction.function(proteinMatches.at(i).matches.at(k), ligandMatches.at(j).matches.at(s));
+                    }
+                }
+            }
+        }
+    }
+}
+
 // populates the vector of MatchStruct with the know patterns found in mol 
 void identifySubstructs(RDKit::ROMol mol, SMARTSPattern patterns[], int patternsCount, std::vector<MatchStruct> &matches){
     RDKit::ROMol* patternMol;
@@ -171,17 +221,17 @@ int main(int argc, char *argv[]) {  // First argument: PDB file, then a non fixe
 
     input(argv, argc, molVector);
 
-    identifySubstructs(molVector.at(0), smartsPatterns, smartsPatternsCount, proteinMatches); //identifica substructs proteina
+    identifySubstructs(molVector.at(0), smartsPatterns, smartsPatternsCount, proteinMatches); // Identifica substructs proteina
     printFoundPatterns(proteinMatches);
-    
-    identifySubstructs(molVector.at(1), smartsPatterns, smartsPatternsCount, ligandMatches); //identifica substructs ligando
-    printFoundPatterns(ligandMatches);
 
-    // for(int i = 1; i < argc - 1; i++){ //per ogni ligando
-    //     identifySubstructs(molVector.at(i), smartsPatterns, smartsPatternsCount, ligandMatches, ligandMatchesPatterns); //identifica substruct ligando
-    //     //identifyInteractions(); //individua tutte le interazioni tra proteina e ligando e le accoda al file CSV
-    //     //pulisci ligandMatches e ligandMatchesPatterns
-    // } 
+
+
+    for(int i = 1; i < argc - 1; i++){ // Per ogni ligando
+        identifySubstructs(molVector.at(i), smartsPatterns, smartsPatternsCount, ligandMatches); // Identifica substruct ligando
+        identifyInteractions(proteinMatches, ligandMatches); //Individua tutte le interazioni tra proteina e ligando e le accoda al file CSV
+        //printFoundPatterns(ligandMatches);
+        ligandMatches.clear();
+    } 
 
     return EXIT_SUCCESS;
 }
