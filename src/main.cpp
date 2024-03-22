@@ -150,13 +150,13 @@ bool isInteractionPossible(MatchStruct firstPattern, MatchStruct secondPattern, 
     return false;
 }
 
-void identifyInteractions(std::vector<MatchStruct> proteinMatches, std::vector<MatchStruct> ligandMatches){
-    for(int i = 0; i < proteinMatches.size(); i++){         // | This double for compares every element in proteinMatches with 
-        for(int j = 0; j < ligandMatches.size(); j++){      // | every element in ligandMatches
-            if(isInteractionPossible(proteinMatches.at(i), ligandMatches.at(j), possibleInteractions, possibleInteractionsCount)){
-                for(int k = 0; k < proteinMatches.at(i).matches.size(); k++){      // | Found a compatible pair of MatchStruct, one of the protein and one of the ligand, this double for compares every element
-                    for(int s = 0; s < ligandMatches.at(j).matches.size(); s++){   // | of a MatchStruct.matches with every element of the second MatchStruct.matches
-                        //retInteraction.function(proteinMatches.at(i).matches.at(k), ligandMatches.at(j).matches.at(s));
+void identifyInteractions(std::vector<MatchStruct> proteinPatterns, std::vector<MatchStruct> ligandPatterns){
+    for(int i = 0; i < proteinPatterns.size(); i++){         // | This double for compares every element in proteinPatterns with 
+        for(int j = 0; j < ligandPatterns.size(); j++){      // | every element in ligandPatterns
+            if(isInteractionPossible(proteinPatterns.at(i), ligandPatterns.at(j), possibleInteractions, possibleInteractionsCount)){
+                for(int k = 0; k < proteinPatterns.at(i).matches.size(); k++){      // | Found a compatible pair of MatchStruct, one of the protein and one of the ligand, this double for compares every element
+                    for(int s = 0; s < ligandPatterns.at(j).matches.size(); s++){   // | of a MatchStruct.matches with every element of the second MatchStruct.matches
+                        //retInteraction.function(proteinPatterns.at(i).matches.at(k), ligandPatterns.at(j).matches.at(s));
                     }
                 }
             }
@@ -204,11 +204,11 @@ void printFoundPatterns(std::vector<MatchStruct> foundPatterns){
     }
 }
 //takes input all the values as parameters and prints on the CSV file passed by reference NB.might be necessary to escape the strings if there can be "," in them
-void output(std::string ligandName, std::string proteinAtomId, std::string proteinPattern, float proteinX, float proteinY, float proteinZ, std::string ligandAtomId, std::string ligandPattern, float ligandX, float ligandY, float ligandZ, std::string interactionType, float interactionDistance, std::ofstream &outputFile){
+void output(std::string ligandName, std::string proteinAtomId, std::string proteinPatterns, float proteinX, float proteinY, float proteinZ, std::string ligandAtomId, std::string ligandPattern, float ligandX, float ligandY, float ligandZ, std::string interactionType, float interactionDistance, std::ofstream &outputFile){
     if (outputFile.is_open()){
         outputFile << ligandName << ","
                    << proteinAtomId << ","
-                   << proteinPattern << ","
+                   << proteinPatterns << ","
                    << proteinX << ","
                    << proteinY << ","
                    << proteinZ << ","
@@ -229,22 +229,8 @@ int main(int argc, char *argv[]) {  // First argument: PDB file, then a non fixe
 
     std::vector<RDKit::ROMol> molVector; // Vector of all the molecules (the first element is always a protein, the other are ligands)
 
-    std::vector<MatchStruct> proteinMatches; // Every element of this vector rapresent a known pattern recognised in the protein, for every element there is a list of matches (see MatchStruct)
-    std::vector<MatchStruct> ligandMatches;
-
-    // Prints the files passed from line (argc, argv)
-    if(argc >= 2){
-        printf("Ci sono %d file passati:\n", argc - 1);
-        std::cout << "1-" << "Protein: " << argv[1] << std::endl;
-        for(int i = 2; i < argc; i++) {
-            std::cout << i << "-Ligand: " << argv[i] << std::endl;
-        }
-    }
-
-    input(argv, argc, molVector);
-
-    identifySubstructs(molVector.at(0), smartsPatterns, smartsPatternsCount, proteinMatches); // Identifica substructs proteina
-    printFoundPatterns(proteinMatches);
+    std::vector<MatchStruct> proteinPatterns; // Every element of this vector rapresent a known pattern recognised in the protein, for every element there is a list of matches (see MatchStruct)
+    std::vector<MatchStruct> ligandPatterns;
 
     //the CSV file is created and inicialized with the HEADER line in the main
     std::ofstream outputFile("interactions.csv",std::ios::out);
@@ -259,24 +245,31 @@ int main(int argc, char *argv[]) {  // First argument: PDB file, then a non fixe
 
     /*To print on CSV file with output function use:
     outputFile.open("interactions.csv", std::ios::app);
-    output(ligandName, proteinAtomId, proteinPattern, proteinX, proteinY, proteinZ,
+    output(ligandName, proteinAtomId, proteinPatterns, proteinX, proteinY, proteinZ,
        ligandAtomId, ligandPattern, ligandX, ligandY, ligandZ,
        interactionType, interactionDistance, outputFile);
     outputFile.close();
     */
 
-    // for(int i = 1; i < argc - 1; i++){ //per ogni ligando
-    //     identifySubstructs(molVector.at(i), smartsPatterns, smartsPatternsCount, ligandMatches, ligandMatchesPatterns); //identifica substruct ligando
-    //     //identifyInteractions(); //individua tutte le interazioni tra proteina e ligando e le accoda al file CSV
-    //     //pulisci ligandMatches e ligandMatchesPatterns
-    // } 
+    // Prints the files passed from line (argc, argv)
+    if(argc >= 2){
+        printf("Ci sono %d file passati:\n", argc - 1);
+        std::cout << "1-" << "Protein: " << argv[1] << std::endl;
+        for(int i = 2; i < argc; i++) {
+            std::cout << i << "-Ligand: " << argv[i] << std::endl;
+        }
+    }
 
+    input(argv, argc, molVector);
+
+    identifySubstructs(molVector.at(0), smartsPatterns, smartsPatternsCount, proteinPatterns); // Identifica substructs proteina
+    //printFoundPatterns(proteinPatterns);
 
     for(int i = 1; i < argc - 1; i++){ // Per ogni ligando
-        identifySubstructs(molVector.at(i), smartsPatterns, smartsPatternsCount, ligandMatches); // Identifica substruct ligando
-        identifyInteractions(proteinMatches, ligandMatches); //Individua tutte le interazioni tra proteina e ligando e le accoda al file CSV
-        //printFoundPatterns(ligandMatches);
-        ligandMatches.clear();
+        identifySubstructs(molVector.at(i), smartsPatterns, smartsPatternsCount, ligandPatterns); // Identifica substruct ligando
+        identifyInteractions(proteinPatterns, ligandPatterns); //Individua tutte le interazioni tra proteina e ligando e le accoda al file CSV
+        //printFoundPatterns(ligandPatterns);
+        ligandPatterns.clear();
     } 
 
     return EXIT_SUCCESS;
