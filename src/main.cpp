@@ -3,6 +3,8 @@
 #include <cstdio> 
 #include <string>
 #include <fstream>
+#include <map>
+#include <vector>
 #include <GraphMol/GraphMol.h>
 #include <GraphMol/SmilesParse/SmilesParse.h>
 #include <GraphMol/SmilesParse/SmilesWrite.h>
@@ -14,18 +16,29 @@
 #include <GraphMol/Descriptors/MolDescriptors.h>
 #include <GraphMol/Substruct/SubstructMatch.h>
 
+enum class Pattern {
+    Hydrophobic,
+    Hydrogen_donor-H,
+    Hydrogen_acceptor,
+    Halogen_donor-halogen,
+    Halogen_acceptor-any,
+    Anion,
+    Cation,
+    Aromatic_ring5,
+    Aromatic_ring6,
+    Metal,
+    Chelated,
+}
+
 
 struct SMARTSPattern {
     std::string name;
     int numAtoms;
     std::string smartsString;
 };
-
-struct MatchStruct{
-    SMARTSPattern pattern;
-    std::vector<RDKit::MatchVectType> matches; // Vector of vectors of pairs. Its a vector of all the matchings of a same known pattern found in a mol, the pairs are the atoms of mol and of the target that matches
+struct FoundPatterns{
+    std::map<Pattern, std::vector<RDKit::MatchVectType>> patternMatches; // Maps every pattern with vector of all it's found istances that are rappresented ad pairs <athom in the pattern, athom in the mol>.
 };
-
 struct PossibleInteraction{
     std::string name;
     std::vector<std::string> interactonPatterns; 
@@ -164,24 +177,18 @@ void identifyInteractions(std::vector<MatchStruct> proteinPatterns, std::vector<
     }
 }
 
-// populates the vector of MatchStruct with the know patterns found in mol 
-void identifySubstructs(RDKit::ROMol mol, SMARTSPattern patterns[], int patternsCount, std::vector<MatchStruct> &matches){
-    RDKit::ROMol* patternMol;
-    bool foundMatch;
-
+// for eatch pattern of the Pattern enum looks if it is in the mol and saves all the matches in the MatchVectType field of the map inside FoundPatterns.
+void identifySubstructs(RDKit::ROMol& mol, SMARTSPattern patterns[], int patternsCount, FoundPatterns& foundPatterns){
     for(int i = 0; i < patternsCount; i++){
         std::vector<RDKit::MatchVectType> tmpMatchesVector;
-        MatchStruct tmpStruct;
+        RDKit::ROMol* patternMol = RDKit::SmartsToMol(patterns[i].smartsString);
+        bool foundMatch = RDKit::SubstructMatch(mol, *patternMol, tmpMatchesVector);
 
-        patternMol = RDKit::SmartsToMol(smartsPatterns[i].smartsString);
-
-        foundMatch = RDKit::SubstructMatch(mol, *patternMol, tmpMatchesVector, true, false);
-
-        if(foundMatch){
-            tmpStruct.pattern = smartsPatterns[i];
-            tmpStruct.matches = tmpMatchesVector;
-            matches.push_back(tmpStruct);
+        if(foundMatch && !tmpMatchesVector.empty()){
+            //the number of patterns and their index must be the same inside the Pattern Enum and smartsPatterns
+            foundPatterns.patternMatches[static_cast<Pattern>(i)] = tmpMatchesVector;
         }
+        delete patternMol;
     }
 }
 
@@ -229,8 +236,8 @@ int main(int argc, char *argv[]) {  // First argument: PDB file, then a non fixe
 
     std::vector<RDKit::ROMol> molVector; // Vector of all the molecules (the first element is always a protein, the other are ligands)
 
-    std::vector<MatchStruct> proteinPatterns; // Every element of this vector rapresent a known pattern recognised in the protein, for every element there is a list of matches (see MatchStruct)
-    std::vector<MatchStruct> ligandPatterns;
+    FoundPatterns proteinPatterns;  //Declares a FoundPattern struct where to save all the pattern found in the protein
+    FoundPatterns ligandPatterns;   //Declares a FoundPattern struct where to save all the pattern found in the ligand, the same will be used for all ligand passed in input.
 
     //the CSV file is created and inicialized with the HEADER line in the main
     std::ofstream outputFile("interactions.csv",std::ios::out);
@@ -262,11 +269,11 @@ int main(int argc, char *argv[]) {  // First argument: PDB file, then a non fixe
 
     input(argv, argc, molVector);
 
-    identifySubstructs(molVector.at(0), smartsPatterns, smartsPatternsCount, proteinPatterns); // Identifica substructs proteina
+    identifySubstructs(molVector.at(0), smartsPatterns, smartsPatternsCount, proteinPatterns); // Identifies all the itances of patterns inside the protein
     //printFoundPatterns(proteinPatterns);
 
-    for(int i = 1; i < argc - 1; i++){ // Per ogni ligando
-        identifySubstructs(molVector.at(i), smartsPatterns, smartsPatternsCount, ligandPatterns); // Identifica substruct ligando
+    for(int i = 1; i < argc - 1; i++){ // For every ligand
+        identifySubstructs(molVector.at(i), smartsPatterns, smartsPatternsCount, ligandPatterns); // Identifies all the itances of patterns inside the ligand
         identifyInteractions(proteinPatterns, ligandPatterns); //Individua tutte le interazioni tra proteina e ligando e le accoda al file CSV
         //printFoundPatterns(ligandPatterns);
         ligandPatterns.clear();
