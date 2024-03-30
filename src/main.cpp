@@ -18,7 +18,7 @@
 
 enum class Pattern {
     Hydrophobic,
-    Hydrogen_donor-H,
+    Hydrogen_donor_H,
     Hydrogen_acceptor,
     Halogen_donor-halogen,
     Halogen_acceptor-any,
@@ -28,11 +28,10 @@ enum class Pattern {
     Aromatic_ring6,
     Metal,
     Chelated,
-}
-
+};
 
 struct SMARTSPattern {
-    std::string name;
+    Pattern pattern;
     int numAtoms;
     std::string smartsString;
 };
@@ -46,17 +45,17 @@ struct PossibleInteraction{
 
 
 SMARTSPattern smartsPatterns[] = {
-    {"hydrophobic", 1, "[c,s,Br,I,S&H0&v2,$([D3,D4;#6])&!$([#6]~[#7,#8,#9])&!$([#6X4H0]);+0]"},
-    {"hydrogen_donor-H", 2, "[$([O,S;+0]),$([N;v3,v4&+1]),n+0]-[H]"},
-    {"hydrogen_acceptor", 1, "[#7&!$([nX3])&!$([NX3]-*=[O,N,P,S])&!$([NX3]-[a])&!$([Nv4&+1]),O&!$([OX2](C)C=O)&!$(O(~a)~a)&!$(O=N-*)&!$([O-]-N=O),o+0,F&$(F-[#6])&!$(F-[#6][F,Cl,Br,I])]"},
-    {"halogen_donor-halogen", 2, "[#6,#7,Si,F,Cl,Br,I]-[Cl,Br,I,At]"},
-    {"halogen_acceptor-any", 2, "[#7,#8,P,S,Se,Te,a;!+{1-}][*]"},
-    {"anion", 1, "[-{1-},$(O=[C,S,P]-[O-])]"},
-    {"cation", 1, "[+{1-},$([NX3&!$([NX3]-O)]-[C]=[NX3+])]"},
-    {"aromatic_ring", 5, "[a;r5]1:[a;r5]:[a;r5]:[a;r5]:[a;r5]:1"},
-    {"aromatic_ring", 6, "[a;r6]1:[a;r6]:[a;r6]:[a;r6]:[a;r6]:[a;r6]:1"},
-    {"metal", 1, "[Ca,Cd,Co,Cu,Fe,Mg,Mn,Ni,Zn]"},
-    {"chelated", 1, "[O,#7&!$([nX3])&!$([NX3]-*=[!#6])&!$([NX3]-[a])&!$([NX4]),-{1-};!+{1-}]"}
+    {Pattern::Hydrophobic , 1, "[c,s,Br,I,S&H0&v2,$([D3,D4;#6])&!$([#6]~[#7,#8,#9])&!$([#6X4H0]);+0]"},
+    {Pattern::Hydrogen_donor_H, 2, "[$([O,S;+0]),$([N;v3,v4&+1]),n+0]-[H]"},
+    {Pattern::Hydrogen_acceptor, 1, "[#7&!$([nX3])&!$([NX3]-*=[O,N,P,S])&!$([NX3]-[a])&!$([Nv4&+1]),O&!$([OX2](C)C=O)&!$(O(~a)~a)&!$(O=N-*)&!$([O-]-N=O),o+0,F&$(F-[#6])&!$(F-[#6][F,Cl,Br,I])]"},
+    {Pattern::Halogen_donor_halogen, 2, "[#6,#7,Si,F,Cl,Br,I]-[Cl,Br,I,At]"},
+    {Pattern::Halogen_acceptor_any, 2, "[#7,#8,P,S,Se,Te,a;!+{1-}][*]"},
+    {Pattern::Anion, 1, "[-{1-},$(O=[C,S,P]-[O-])]"},
+    {Pattern::Cation, 1, "[+{1-},$([NX3&!$([NX3]-O)]-[C]=[NX3+])]"},
+    {Pattern::Aromatic_ring5, 5, "[a;r5]1:[a;r5]:[a;r5]:[a;r5]:[a;r5]:1"},
+    {Pattern::Aromatic_ring6, 6, "[a;r6]1:[a;r6]:[a;r6]:[a;r6]:[a;r6]:[a;r6]:1"},
+    {Pattern::Metal, 1, "[Ca,Cd,Co,Cu,Fe,Mg,Mn,Ni,Zn]"},
+    {Pattern::Chelated, 1, "[O,#7&!$([nX3])&!$([NX3]-*=[!#6])&!$([NX3]-[a])&!$([NX4]),-{1-};!+{1-}]"}
 };
 
 const int smartsPatternsCount = sizeof(smartsPatterns) / sizeof(SMARTSPattern);
@@ -188,6 +187,7 @@ void findIonicInteraction_Ca_An(const RDKit::ROMol& protein, const RDKit::ROMol&
 void findIonicInteraction_Ca_Ar(const RDKit::ROMol& protein, const RDKit::ROMol& ligand, const FoundPatterns& proteinPatterns, const FoundPatterns& ligandPatterns){}
 void findPiStacking(const RDKit::ROMol& protein, const RDKit::ROMol& ligand, const FoundPatterns& proteinPatterns, const FoundPatterns& ligandPatterns){}
 void findmetalCoordination(const RDKit::ROMol& protein, const RDKit::ROMol& ligand, const FoundPatterns& proteinPatterns, const FoundPatterns& ligandPatterns){}
+void findMetalCoordination(const RDKit::ROMol& protein, const RDKit::ROMol& ligand, const FoundPatterns& proteinPatterns, const FoundPatterns& ligandPatterns){}
 
 void identifyInteractions(const RDKit::ROMol& protein, const RDKit::ROMol& ligand, const FoundPatterns& proteinPatterns, const FoundPatterns& ligandPatterns){
     //every function will need to serch all the interactions of that tipe and for every one found call the output function that adds them to the CSV file
