@@ -143,7 +143,7 @@ void input(char **argv, int argc, std::vector<RDKit::ROMol> &molVector) {
         }
     }
 }
-
+/*
 bool contains(std::vector<std::string> vec, std::string str){
     for(int i = 0; i < vec.size(); i++){
         if(vec.at(i) == str)
@@ -175,10 +175,35 @@ void identifyInteractions(std::vector<MatchStruct> proteinPatterns, std::vector<
             }
         }
     }
+}*/
+void findHydrophobicInteraction(const RDKit::ROMol& protein, const RDKit::ROMol& ligand, const FoundPatterns& proteinPatterns, const FoundPatterns& ligandPatterns){
+    //Check that there is at list one Hydrophobic pattern found on both protein and ligand
+    if ((proteinPatterns.patternMatches.find(Pattern::Hydrophobic) != proteinPatterns.patternMatches.end()) && (ligandPatterns.patternMatches.find(Pattern::Hydrophobic) != ligandPatterns.patternMatches.end())){
+        
+    }
+}
+void findHydrogenBond(const RDKit::ROMol& protein, const RDKit::ROMol& ligand, const FoundPatterns& proteinPatterns, const FoundPatterns& ligandPatterns){}
+void findHalogenBond(const RDKit::ROMol& protein, const RDKit::ROMol& ligand, const FoundPatterns& proteinPatterns, const FoundPatterns& ligandPatterns){}
+void findIonicInteraction_Ca_An(const RDKit::ROMol& protein, const RDKit::ROMol& ligand, const FoundPatterns& proteinPatterns, const FoundPatterns& ligandPatterns){}
+void findIonicInteraction_Ca_Ar(const RDKit::ROMol& protein, const RDKit::ROMol& ligand, const FoundPatterns& proteinPatterns, const FoundPatterns& ligandPatterns){}
+void findPiStacking(const RDKit::ROMol& protein, const RDKit::ROMol& ligand, const FoundPatterns& proteinPatterns, const FoundPatterns& ligandPatterns){}
+void findmetalCoordination(const RDKit::ROMol& protein, const RDKit::ROMol& ligand, const FoundPatterns& proteinPatterns, const FoundPatterns& ligandPatterns){}
+
+void identifyInteractions(const RDKit::ROMol& protein, const RDKit::ROMol& ligand, const FoundPatterns& proteinPatterns, const FoundPatterns& ligandPatterns){
+    //every function will need to serch all the interactions of that tipe and for every one found call the output function that adds them to the CSV file
+    
+    findHydrophobicInteraction(protein, ligand, proteinPatterns, ligandPatterns);
+    findHydrogenBond(protein, ligand, proteinPatterns, ligandPatterns);
+    findHalogenBond(protein, ligand, proteinPatterns, ligandPatterns);
+    findIonicInteraction_Ca_An(protein, ligand, proteinPatterns, ligandPatterns);
+    findIonicInteraction_Ca_Ar(protein, ligand, proteinPatterns, ligandPatterns);
+    findPiStacking(protein, ligand, proteinPatterns, ligandPatterns);
+    findMetalCoordination(protein, ligand, proteinPatterns, ligandPatterns);
+    
 }
 
 // for eatch pattern of the Pattern enum looks if it is in the mol and saves all the matches in the MatchVectType field of the map inside FoundPatterns.
-void identifySubstructs(RDKit::ROMol& mol, SMARTSPattern patterns[], int patternsCount, FoundPatterns& foundPatterns){
+void identifySubstructs(RDKit::ROMol& mol, SMARTSPattern patterns[], int patternsCount, FoundPatterns &foundPatterns){
     for(int i = 0; i < patternsCount; i++){
         std::vector<RDKit::MatchVectType> tmpMatchesVector;
         RDKit::ROMol* patternMol = RDKit::SmartsToMol(patterns[i].smartsString);
@@ -274,8 +299,7 @@ int main(int argc, char *argv[]) {  // First argument: PDB file, then a non fixe
 
     for(int i = 1; i < argc - 1; i++){ // For every ligand
         identifySubstructs(molVector.at(i), smartsPatterns, smartsPatternsCount, ligandPatterns); // Identifies all the itances of patterns inside the ligand
-        identifyInteractions(proteinPatterns, ligandPatterns); //Individua tutte le interazioni tra proteina e ligando e le accoda al file CSV
-        //printFoundPatterns(ligandPatterns);
+        identifyInteractions(proteinPatterns, ligandPatterns); //Identifies all the interactions between protein and ligand and adds the to the CSV file
         ligandPatterns.clear();
     } 
 
