@@ -5,6 +5,7 @@
 #include <fstream>
 #include <map>
 #include <vector>
+#include <memory>
 #include <GraphMol/GraphMol.h>
 #include <GraphMol/SmilesParse/SmilesParse.h>
 #include <GraphMol/SmilesParse/SmilesWrite.h>
@@ -35,14 +36,25 @@ struct SMARTSPattern {
     int numAtoms;
     std::string smartsString;
 };
-struct FoundPatterns{
+struct FoundPatterns {
     std::map<Pattern, std::vector<RDKit::MatchVectType>> patternMatches; // Maps every pattern with vector of all it's found istances that are rappresented ad pairs <athom in the pattern, athom in the mol>.
 };
-struct PossibleInteraction{
-    std::string name;
-    std::vector<std::string> interactonPatterns; 
-};
 
+struct Molecule {   //This struct is used to save ich mol with it's name
+    std::string name;
+    std::unique_ptr<RDKit::ROMol> mol;
+
+    Molecule(const std::string& molName, RDKit::ROMol* molPtr)  // Constructor that populates the name and mol attributes (it neads a pointer to a ROMol object)
+        : name(molName), mol(molPtr) {}
+
+    // Disables copy to ensure the ROMol object can not be accidentaly copied
+    Molecule(const Molecule&) = delete;
+    Molecule& operator=(const Molecule&) = delete;
+
+    // The following is optional but is better tu put it to avoid problems with the compiler, it enables the possibility to move controll of the object to others
+    Molecule(Molecule&&) noexcept = default;
+    Molecule& operator=(Molecule&&) noexcept = default;
+}
 
 SMARTSPattern smartsPatterns[] = {
     {Pattern::Hydrophobic , 1, "[c,s,Br,I,S&H0&v2,$([D3,D4;#6])&!$([#6]~[#7,#8,#9])&!$([#6X4H0]);+0]"},
@@ -96,9 +108,16 @@ void printMolOverview(RDKit::ROMol mol, bool smiles) {
     }
 }
 
-// input(char**, int, std::vector<RDKit::ROMol> &) : takes the command line arguments (files names and number or arguments) 
-// and does the parsing for each file saving a ROMol in the last parameter (a vector of ROMol passed by ref) 
-void input(char **argv, int argc, std::vector<RDKit::ROMol> &molVector) {
+// The name of the files containing the molecules has a .pdb or .mol2 extension at the end that isn't needed nor wonted so this function get's rid of it 
+std::string removeFileExtension(const std::string& filename) {
+    size_t lastdot = filename.find_last_of(".");
+    if (lastdot == std::string::npos) return filename;
+    return filename.substr(0, lastdot);
+}
+
+// input(char**, int, std::vector<Molecule> &) : takes the command line arguments (files names and number or arguments) 
+// and does the parsing for each file saving a ROMol and the name of that molecule in the last parameter (a vector of struct Molecule passed by ref) 
+void input(char **argv, int argc, std::vector<Molecule> &molVector) {
     FILE *file;
     char *fileContent = NULL;
 
@@ -125,18 +144,20 @@ void input(char **argv, int argc, std::vector<RDKit::ROMol> &molVector) {
 
             fclose(file);
 
-            RDKit::ROMol* mol;
+            std::unique_ptr<RDKit::ROMol> mol;
 
-            if(i == 1){  // if file is a PDB
-                mol = RDKit::PDBBlockToMol(fileContent, true, false);
-                molVector.push_back(*mol);
+            if(i == 1){  // if file is a .pdb
+                mol.reset(RDKit::PDBBlockToMol(fileContent, true, false));
             }
-            else{
-                mol = RDKit::Mol2BlockToMol(fileContent, true, false);
-                molVector.push_back(*mol);
+            else{   //if file is a .mol2
+                mol.reset(RDKit::Mol2BlockToMol(fileContent, true, false));
             }
 
-            printMolOverview(*mol, false);
+            if(mol) {
+                molVector.emplace_back(removeFileExtension(argv[i]), mol.release());
+            }
+
+            printMolOverview(*(molVector.back().mol), false);
 
             free(fileContent);
         }
@@ -175,21 +196,50 @@ void identifyInteractions(std::vector<MatchStruct> proteinPatterns, std::vector<
         }
     }
 }*/
-void findHydrophobicInteraction(const RDKit::ROMol& protein, const RDKit::ROMol& ligand, const FoundPatterns& proteinPatterns, const FoundPatterns& ligandPatterns){
+
+float calculateDistance(const Molecule& protein, unsigned int indxPA, const Molecule& ligand, unsigned int idxLA, RDGeom::Point3D &posProt, RDGeom::Point3D &posLig){  //calculates euclidian distance between 2 atoms located in a 3D space
+    const RDKit::Conformer& confProt = protein.mol.getConformer();  //Conformer is a class that represents the 2D or 3D conformation of a molecule
+    const RDKit::Conformer& confLig = ligand.mol.getConformer();    //we get an istance of the 3D conformation of both protein and ligand
+    posProt = confProt.getAtomPos(idxPA);   //we get the 3D position of the desired atoms
+    posLig = confLig.getAtomPos(idxLA);
+    return (pos1 - pos2).length();
+}
+void findHydrophobicInteraction(const Molecule& protein, const Molecule& ligand, const FoundPatterns& proteinPatterns, const FoundPatterns& ligandPatterns){
+    RDGeom::Point3D& posProt    //are needed to easly manage x,y,z cordinates that will be feeded to the output funcion
+    RDGeom::Point3D& posLig
+    auto tmpProt = proteinPatterns.patternMatches.find(Pattern::Hydrophobic);
+    auto tmpLig = proteinPatterns.patternMatches.find(Pattern::Hydrophobic);
+    int protAIndx;  //will contain the atom index for the protein in order to calculate distances
+    int ligAIndx;   //same for the ligand
+    float distance;
+
     //Check that there is at list one Hydrophobic pattern found on both protein and ligand
     if ((proteinPatterns.patternMatches.find(Pattern::Hydrophobic) != proteinPatterns.patternMatches.end()) && (ligandPatterns.patternMatches.find(Pattern::Hydrophobic) != ligandPatterns.patternMatches.end())){
-        
+        for (const auto& matchVectProt : tmpProt->second){  //for every block of the vector containing Hydrophobic matcher in proteinPatterns.patterMatches
+            for(const auto& matchVectLig : tmpLig->second){ //for every block of the vector containing Hydrophobic matcher in ligandPatterns.patternMatches
+                for(const auto& pairsProt : matchVectProt){ //for every pair <atom in the pattern, atom in the prot>
+                    protAIndx = pairsProt.second;
+                    for(const auto& pairsLig : matchVectLig){   //for every pair <atom in the pattern, atom in the mol>
+                        ligAIndx = pairsLig.second;
+                        distance = calculateDistance(protein, protAIndx, ligand, ligAIndx, posProt, posLig);
+                        if (distance <= 4,5){
+                            output(ligand.name, /*Protein Atom ID*/, "Hydrophobic", posProt.x, posProt.y, posProt.z, /*Ligand Atom ID*/, "Hydrophobic", posLig.x, posLig.y, posLig.z, "Hydrophobic", distance);   //call output funcion
+                        }
+                    }
+                }
+            }
+        }
     }
 }
-void findHydrogenBond(const RDKit::ROMol& protein, const RDKit::ROMol& ligand, const FoundPatterns& proteinPatterns, const FoundPatterns& ligandPatterns){}
-void findHalogenBond(const RDKit::ROMol& protein, const RDKit::ROMol& ligand, const FoundPatterns& proteinPatterns, const FoundPatterns& ligandPatterns){}
-void findIonicInteraction_Ca_An(const RDKit::ROMol& protein, const RDKit::ROMol& ligand, const FoundPatterns& proteinPatterns, const FoundPatterns& ligandPatterns){}
-void findIonicInteraction_Ca_Ar(const RDKit::ROMol& protein, const RDKit::ROMol& ligand, const FoundPatterns& proteinPatterns, const FoundPatterns& ligandPatterns){}
-void findPiStacking(const RDKit::ROMol& protein, const RDKit::ROMol& ligand, const FoundPatterns& proteinPatterns, const FoundPatterns& ligandPatterns){}
-void findmetalCoordination(const RDKit::ROMol& protein, const RDKit::ROMol& ligand, const FoundPatterns& proteinPatterns, const FoundPatterns& ligandPatterns){}
-void findMetalCoordination(const RDKit::ROMol& protein, const RDKit::ROMol& ligand, const FoundPatterns& proteinPatterns, const FoundPatterns& ligandPatterns){}
+void findHydrogenBond(const Molecule& protein, const Molecule& ligand, const FoundPatterns& proteinPatterns, const FoundPatterns& ligandPatterns){}
+void findHalogenBond(const Molecule& protein, const Molecule& ligand, const FoundPatterns& proteinPatterns, const FoundPatterns& ligandPatterns){}
+void findIonicInteraction_Ca_An(const Molecule& protein, const Molecule& ligand, const FoundPatterns& proteinPatterns, const FoundPatterns& ligandPatterns){}
+void findIonicInteraction_Ca_Ar(const Molecule& protein, const Molecule& ligand, const FoundPatterns& proteinPatterns, const FoundPatterns& ligandPatterns){}
+void findPiStacking(const Molecule& protein, const Molecule& ligand, const FoundPatterns& proteinPatterns, const FoundPatterns& ligandPatterns){}
+void findmetalCoordination(const Molecule& protein, const Molecule& ligand, const FoundPatterns& proteinPatterns, const FoundPatterns& ligandPatterns){}
+void findMetalCoordination(const Molecule& protein, const Molecule& ligand, const FoundPatterns& proteinPatterns, const FoundPatterns& ligandPatterns){}
 
-void identifyInteractions(const RDKit::ROMol& protein, const RDKit::ROMol& ligand, const FoundPatterns& proteinPatterns, const FoundPatterns& ligandPatterns){
+void identifyInteractions(const Molecule& protein, const Molecule& ligand, const FoundPatterns& proteinPatterns, const FoundPatterns& ligandPatterns){
     //every function will need to serch all the interactions of that tipe and for every one found call the output function that adds them to the CSV file
     
     findHydrophobicInteraction(protein, ligand, proteinPatterns, ligandPatterns);
@@ -259,7 +309,7 @@ void output(std::string ligandName, std::string proteinAtomId, std::string prote
 
 int main(int argc, char *argv[]) {  // First argument: PDB file, then a non fixed number of Mol2 files
 
-    std::vector<RDKit::ROMol> molVector; // Vector of all the molecules (the first element is always a protein, the other are ligands)
+    std::vector<Molecule> molVector; // Vector of all the molecules with their name, (the first element is always a protein, the other are ligands)
 
     FoundPatterns proteinPatterns;  //Declares a FoundPattern struct where to save all the pattern found in the protein
     FoundPatterns ligandPatterns;   //Declares a FoundPattern struct where to save all the pattern found in the ligand, the same will be used for all ligand passed in input.
@@ -294,12 +344,12 @@ int main(int argc, char *argv[]) {  // First argument: PDB file, then a non fixe
 
     input(argv, argc, molVector);
 
-    identifySubstructs(molVector.at(0), smartsPatterns, smartsPatternsCount, proteinPatterns); // Identifies all the itances of patterns inside the protein
+    identifySubstructs(molVector.at(0).mol.get(), smartsPatterns, smartsPatternsCount, proteinPatterns); // Identifies all the itances of patterns inside the protein
     //printFoundPatterns(proteinPatterns);
 
     for(int i = 1; i < argc - 1; i++){ // For every ligand
-        identifySubstructs(molVector.at(i), smartsPatterns, smartsPatternsCount, ligandPatterns); // Identifies all the itances of patterns inside the ligand
-        identifyInteractions(proteinPatterns, ligandPatterns); //Identifies all the interactions between protein and ligand and adds the to the CSV file
+        identifySubstructs(molVector.at(i).mol.get(), smartsPatterns, smartsPatternsCount, ligandPatterns); // Identifies all the itances of patterns inside the ligand
+        identifyInteractions(molVector.at(0), molVector.at(i), proteinPatterns, ligandPatterns); //Identifies all the interactions between protein and ligand and adds the to the CSV file
         ligandPatterns.clear();
     } 
 
