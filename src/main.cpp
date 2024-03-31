@@ -31,6 +31,23 @@ enum class Pattern {
     Chelated,
 };
 
+std::string PatternToString(Pattern pattern) {
+    switch(pattern) {
+        case Pattern::Hydrophobic: return "Hydrophobic"; 
+        case Pattern::Hydrogen_donor_H: return "Hydrogen_donor_H"; 
+        case Pattern::Hydrogen_acceptor: return "Hydrogen_acceptor"; 
+        case Pattern::Halogen_donor_halogen: return "Halogen_donor_halogen"; 
+        case Pattern::Halogen_acceptor_any: return "Halogen_acceptor_any"; 
+        case Pattern::Anion: return "Anion"; 
+        case Pattern::Cation: return "Cation"; 
+        case Pattern::Aromatic_ring5: return "Aromatic_ring5"; 
+        case Pattern::Aromatic_ring6: return "Aromatic_ring6";
+        case Pattern::Metal: return "Metal"; 
+        case Pattern::Chelated: return "Chelated";
+        default:    return "Unknown";
+    }
+}
+
 struct SMARTSPattern {
     Pattern pattern;
     int numAtoms;
@@ -54,7 +71,7 @@ struct Molecule {   //This struct is used to save ich mol with it's name
     // The following is optional but is better tu put it to avoid problems with the compiler, it enables the possibility to move controll of the object to others
     Molecule(Molecule&&) noexcept = default;
     Molecule& operator=(Molecule&&) noexcept = default;
-}
+};
 
 SMARTSPattern smartsPatterns[] = {
     {Pattern::Hydrophobic , 1, "[c,s,Br,I,S&H0&v2,$([D3,D4;#6])&!$([#6]~[#7,#8,#9])&!$([#6X4H0]);+0]"},
@@ -72,17 +89,17 @@ SMARTSPattern smartsPatterns[] = {
 
 const int smartsPatternsCount = sizeof(smartsPatterns) / sizeof(SMARTSPattern);
 
-PossibleInteraction possibleInteractions[] = {
-    {"Hydrophobic interaction", {"hydrophobic", "hydrophobic"}},
-    {"Hydrogen bond", {"hydrogen_donor-H", "hydrogen_acceptor"}},
-    {"Halogen bond", {"halogen_donor-halogen", "halogen_acceptor-any"}},
-    {"Ionic interaction (cation ... anion)", {"cation", "anion"}},
-    {"Ionic interaction (cation ... aromatic_ring)", {"cation", "aromatic_ring"}},
-    {"Pi stacking", {"aromatic_ring", "aromatic_ring"}},
-    {"Metal coordination", {"metal", "chelated"}}
-};
+// PossibleInteraction possibleInteractions[] = {
+//     {"Hydrophobic interaction", {"hydrophobic", "hydrophobic"}},
+//     {"Hydrogen bond", {"hydrogen_donor-H", "hydrogen_acceptor"}},
+//     {"Halogen bond", {"halogen_donor-halogen", "halogen_acceptor-any"}},
+//     {"Ionic interaction (cation ... anion)", {"cation", "anion"}},
+//     {"Ionic interaction (cation ... aromatic_ring)", {"cation", "aromatic_ring"}},
+//     {"Pi stacking", {"aromatic_ring", "aromatic_ring"}},
+//     {"Metal coordination", {"metal", "chelated"}}
+// };
 
-const int possibleInteractionsCount = sizeof(possibleInteractions) / sizeof(PossibleInteraction);
+//const int possibleInteractionsCount = sizeof(possibleInteractions) / sizeof(PossibleInteraction);
 
 void printMolOverview(RDKit::ROMol mol, bool smiles) {
     // Numero di atomi
@@ -205,8 +222,8 @@ float calculateDistance(const Molecule& protein, unsigned int indxPA, const Mole
     return (pos1 - pos2).length();
 }
 void findHydrophobicInteraction(const Molecule& protein, const Molecule& ligand, const FoundPatterns& proteinPatterns, const FoundPatterns& ligandPatterns){
-    RDGeom::Point3D& posProt    //are needed to easly manage x,y,z cordinates that will be feeded to the output funcion
-    RDGeom::Point3D& posLig
+    RDGeom::Point3D& posProt;    //are needed to easly manage x,y,z cordinates that will be feeded to the output funcion
+    RDGeom::Point3D& posLig;
     auto tmpProt = proteinPatterns.patternMatches.find(Pattern::Hydrophobic);
     auto tmpLig = proteinPatterns.patternMatches.find(Pattern::Hydrophobic);
     int protAIndx;  //will contain the atom index for the protein in order to calculate distances
@@ -267,17 +284,17 @@ void identifySubstructs(RDKit::ROMol& mol, SMARTSPattern patterns[], int pattern
     }
 }
 
-void printFoundPatterns(std::vector<MatchStruct> foundPatterns){
-    std::cout << "Found patterns [" << foundPatterns.size() << "]: "<< std::endl;
+void printFoundPatterns(FoundPatterns foundPatterns){
+    std::cout << "Found patterns [" << foundPatterns.patternMatches.size() << "]: "<< std::endl;
 
-    for(int i = 0; i < foundPatterns.size(); i++){
-        std::cout << " ------ " << foundPatterns.at(i).pattern.name << " ------ " << std::endl;
+    for(const auto& patternMatch: foundPatterns.patternMatches){
+        std::cout << " ------ " << PatternToString(patternMatch.first) << " ------ " << std::endl;
 
-        for(int j = 0; j < foundPatterns.at(i).matches.size(); j++){
+        for(int j = 0; j < patternMatch.second.size(); j++){
             std::cout << "    " << j+1 << std::endl;
 
-            for(int k = 0; k < foundPatterns.at(i).matches.at(j).size(); k++){
-                std::cout << "        " << "First A: " << foundPatterns.at(i).matches.at(j).at(k).first << " Second A: " << foundPatterns.at(i).matches.at(j).at(k).second << std::endl;
+            for(int k = 0; k < patternMatch.second.at(j).size(); k++){
+                std::cout << "        " << "First A: " << patternMatch.second.at(j).at(k).first << " Second A: " << patternMatch.second.at(j).at(k).second << std::endl;
             }
         }
 
