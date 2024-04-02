@@ -214,12 +214,16 @@ void identifyInteractions(std::vector<MatchStruct> proteinPatterns, std::vector<
     }
 }*/
 
-float calculateDistance(const Molecule& protein, unsigned int indxPA, const Molecule& ligand, unsigned int indxLA, RDGeom::Point3D &posProt, RDGeom::Point3D &posLig){  //calculates euclidian distance between 2 atoms located in a 3D space
-    const RDKit::Conformer& confProt = protein.mol.getConformer();  //Conformer is a class that represents the 2D or 3D conformation of a molecule
-    const RDKit::Conformer& confLig = ligand.mol.getConformer();    //we get an istance of the 3D conformation of both protein and ligand
-    posProt = confProt.getAtomPos(indxPA);   //we get the 3D position of the desired atoms
-    posLig = confLig.getAtomPos(indxLA);
-    return (posProt - posLig).length();
+float calculateDistance(RDGeom::Point3D &p_a, RDGeom::Point3D &p_b){  //calculates euclidian distance between 2 points located in a 3D space
+    return (p_a - p_b).length();
+}
+//Having three points located in a 3D space, imagine them forming a triangle: this function calculates the angle on the vertex p_a 
+float calculateAngle(RDGeom::Point3D &p_a, RDGeom::Point3D &p_b, RDGeom::Point3D &p_c){
+    float ab = calculateDistance(p_a, p_b);
+    float bc = calculateDistance(p_b, p_c);
+    float ac = calculateDistance(p_a, p_c);
+
+    return sin((pow(ab, 2) + pow(ac, 2) - pow(bc, 2)) / (2*ab*ac));
 }
 
 // Hydrophobic and Metal interactions both need only a distance check to be evaluated, this function handles the task for both findHydrophobicInteractions() and findMetalInteractions() and handles also the output on CSV
@@ -252,40 +256,76 @@ void basicBondHandler(const Molecule &protein, const Molecule &ligand, std::map<
 void findHydrophobicInteraction(const Molecule& protein, const Molecule& ligand, const FoundPatterns& proteinPatterns, const FoundPatterns& ligandPatterns){
     auto tmpProt = proteinPatterns.patternMatches.find(Pattern::Hydrophobic);
     auto tmpLig = ligandPatterns.patternMatches.find(Pattern::Hydrophobic);
-    float distRequired = 4,5;
+    float distRequired = 4.5;
 
     //Check that there is at list one Hydrophobic pattern found on both protein and ligand
     if ((tmpProt != proteinPatterns.patternMatches.end()) && (tmpLig != ligandPatterns.patternMatches.end())){
         basicBondHandler(protein, ligand, tmpProt, tmpLig, distRequired, "Hydrophobic", "Hydrophobic", "Hydrophobic");
     }
 }
-void findHydrogenBond(const Molecule& protein, const Molecule& ligand, const FoundPatterns& proteinPatterns, const FoundPatterns& ligandPatterns){}
+
+void findHydrogenBond(const Molecule& protein, const Molecule& ligand, const FoundPatterns& proteinPatterns, const FoundPatterns& ligandPatterns){
+    auto tmpProt = proteinPatterns.patternMatches.find(Pattern::Hydrogen_donor_H);
+    auto tmpLig = ligandPatterns.patternMatches.find(Pattern::Hydrogen_acceptor);
+    float distance;
+    float distRequired = 3.5;
+    float minAngleRequired = 130;
+    float maxAngleRequired = 180;
+
+    if ((tmpProt != proteinPatterns.patternMatches.end()) && (tmpLig != ligandPatterns.patternMatches.end())){
+        const RDKit::Conformer& confProt = protein.mol.getConformer();  //TODO: move it somewhere else cause they are used by all the interaction's functions
+        const RDKit::Conformer& confLig = ligand.mol.getConformer();    
+
+        RDGeom::Point3D& pos_donor, pos_hydrogen, pos_acceptor;
+
+        for(const auto& matchVectProt : tmpProt->second){
+            int donorId = matchVectProt.at(0).second;
+            int hydrogenId = matchVectProt.at(1).second;
+
+            pos_donor = confProt.getAtomPos(donorId);
+            pos_hydrogen = confProt.getAtomPos(hydrogenId);
+
+            for(const auto& matchVectLig : tmpLig->second){
+                int acceptorId = matchVectLig.at(0).second;
+
+                pos_acceptor = confLig.getAtomPos(acceptorId);
+
+                if(calculateDistance(pos_donor, pos_acceptor) <= distRequired && (calculateAngle(pos_hydrogen, pos_donor, pos_acceptor) <= maxAngleRequired || calculateAngle(pos_hydrogen, pos_donor, pos_acceptor) <= minAngleRequired)){
+                    output(ligand.name, /*Protein Atom ID*/, "Hydrogen donor", pos_donor.x, pos_donor.y, pos_donor.z, /*Ligand Atom ID*/, "Hydrogen acceptor", pos_acceptor.x, pos_acceptor.y, pos_acceptor.z, "Hydrogen Bond", distance);   //call output funcion
+                }
+        
+            }
+        }
+    }
+}
+
 void findHalogenBond(const Molecule& protein, const Molecule& ligand, const FoundPatterns& proteinPatterns, const FoundPatterns& ligandPatterns){}
 void findIonicInteraction_Ca_An(const Molecule& protein, const Molecule& ligand, const FoundPatterns& proteinPatterns, const FoundPatterns& ligandPatterns){}
 void findIonicInteraction_Ca_Ar(const Molecule& protein, const Molecule& ligand, const FoundPatterns& proteinPatterns, const FoundPatterns& ligandPatterns){}
 void findPiStacking(const Molecule& protein, const Molecule& ligand, const FoundPatterns& proteinPatterns, const FoundPatterns& ligandPatterns){}
+
 void findMetalCoordination(const Molecule& protein, const Molecule& ligand, const FoundPatterns& proteinPatterns, const FoundPatterns& ligandPatterns){
     auto tmpProt = proteinPatterns.patternMatches.find(Pattern::Metal);
     auto tmpLig = ligandPatterns.patternMatches.find(Pattern::Chelated);
-    float distRequired = 2,8;
+    float distRequired = 2.8;
 
     //Check that there is at list one Metal pattern found on the protein and one Chelated pattern on the ligand
-    if (tmpProt != proteinPatterns.patternMatches.end()) && (tmpLig != ligandPatterns.patternMatches.end())){
-        basicBondHandler(protein, ligand, tmpProt, tmpLig, distRequired, "Metal", "Chelated", "Metal")
+    if ((tmpProt != proteinPatterns.patternMatches.end()) && (tmpLig != ligandPatterns.patternMatches.end())){
+        basicBondHandler(protein, ligand, tmpProt, tmpLig, distRequired, "Metal", "Chelated", "Metal");
     }
 
     tmpProt = proteinPatterns.patternMatches.find(Pattern::Chelated);
     tmpLig = ligandPatterns.patternMatches.find(Pattern::Metal);
 
     //Check that there is at list one Chelated pattern found on the protein and one Metal pattern on the ligand
-    if (tmpProt != proteinPatterns.patternMatches.end()) && (tmpLig != ligandPatterns.patternMatches.end())){
-        basicBondHandler(protein, ligand, tmpProt, tmpLig, distRequired, "Chelated", "Metal", "Metal")
+    if ((tmpProt != proteinPatterns.patternMatches.end()) && (tmpLig != ligandPatterns.patternMatches.end())){
+        basicBondHandler(protein, ligand, tmpProt, tmpLig, distRequired, "Chelated", "Metal", "Metal");
     }
 
 }
 
 void identifyInteractions(const Molecule& protein, const Molecule& ligand, const FoundPatterns& proteinPatterns, const FoundPatterns& ligandPatterns){
-    //every function will need to serch all the interactions of that tipe and for every one found call the output function that adds them to the CSV file
+    //every function will need to serch all the interactions of that type and for every one found call the output function that adds them to the CSV file
     
     findHydrophobicInteraction(protein, ligand, proteinPatterns, ligandPatterns);
     findHydrogenBond(protein, ligand, proteinPatterns, ligandPatterns);
@@ -309,6 +349,7 @@ void identifySubstructs(RDKit::ROMol& mol, SMARTSPattern patterns[], int pattern
             foundPatterns.patternMatches[static_cast<Pattern>(i)] = tmpMatchesVector;
         }
         delete patternMol;
+        //TODO: maybe its a good idea to also clean the tmpMatchesVector
     }
 }
 
