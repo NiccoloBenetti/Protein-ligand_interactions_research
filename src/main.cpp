@@ -228,6 +228,10 @@ float calculateAngle(RDGeom::Point3D &p_a, RDGeom::Point3D &p_b, RDGeom::Point3D
     return sin((pow(ab, 2) + pow(ac, 2) - pow(bc, 2)) / (2*ab*ac));
 }
 
+bool isAngleInRange(float angle, float minAngle, float maxAngle){
+    return (angle >= minAngle && angle <= maxAngle) ? true : false;
+}
+
 void findHydrophobicInteraction(const Molecule& molA, const Molecule& molB, const FoundPatterns& molA_patterns, const FoundPatterns& molB_patterns, const bool protA_ligB, std::ofstream &outputFile){
     auto tmpA = molA_patterns.patternMatches.find(Pattern::Hydrophobic);
     auto tmpB = molB_patterns.patternMatches.find(Pattern::Hydrophobic);
@@ -259,34 +263,37 @@ void findHydrophobicInteraction(const Molecule& molA, const Molecule& molB, cons
     }
 }
 
-void findHydrogenBond(const Molecule& molA, const Molecule& molB, const FoundPatterns& molA_patterns, const FoundPatterns& molB_patterns, const bool protA_ligB, std::ofstream &outputFile){
-    auto tmpProt = proteinPatterns.patternMatches.find(Pattern::Hydrogen_donor_H);
-    auto tmpLig = ligandPatterns.patternMatches.find(Pattern::Hydrogen_acceptor);
+void findHydrogenBond(const Molecule& molA, const Molecule& molB, const FoundPatterns& molA_patterns, const FoundPatterns& molB_patterns){
+    auto molA_pattern = molA_patterns.patternMatches.find(Pattern::Hydrogen_donor_H);
+    auto molB_pattern = molB_patterns.patternMatches.find(Pattern::Hydrogen_acceptor);
     float distance;
-    float distRequired = 3.5;
-    float minAngleRequired = 130;
-    float maxAngleRequired = 180;
+    float distance_required = 3.5;
+    float minAngle_required = 130;
+    float maxAngle_required = 180;
 
-    if ((tmpProt != proteinPatterns.patternMatches.end()) && (tmpLig != ligandPatterns.patternMatches.end())){
-        const RDKit::Conformer& confProt = protein.mol.getConformer();  //TODO: move it somewhere else cause they are used by all the interaction's functions
-        const RDKit::Conformer& confLig = ligand.mol.getConformer();    
+    if ((molA_pattern != molA_patterns.patternMatches.end()) && (molB_pattern != molB_patterns.patternMatches.end())){
+        const RDKit::Conformer& conformer_molA = molA.mol.getConformer();  //TODO: move it somewhere else cause they are used by all the interaction's functions
+        const RDKit::Conformer& conformer_molB = molB.mol.getConformer();    
 
         RDGeom::Point3D& pos_donor, pos_hydrogen, pos_acceptor;
 
-        for(const auto& matchVectProt : tmpProt->second){
-            int donorId = matchVectProt.at(0).second;
-            int hydrogenId = matchVectProt.at(1).second;
+        for(const auto& matchVect_molA : molA_pattern->second){
+            int id_donor = matchVect_molA.at(0).second;
+            int id_hydrogen = matchVect_molA.at(1).second;
 
-            pos_donor = confProt.getAtomPos(donorId);
-            pos_hydrogen = confProt.getAtomPos(hydrogenId);
+            pos_donor = conformer_molA.getAtomPos(id_donor);
+            pos_hydrogen = conformer_molA.getAtomPos(id_hydrogen);
 
-            for(const auto& matchVectLig : tmpLig->second){
-                int acceptorId = matchVectLig.at(0).second;
+            for(const auto& matchVect_molB : molB_pattern->second){
+                int id_acceptor = matchVect_molB.at(0).second;
 
-                pos_acceptor = confLig.getAtomPos(acceptorId);
+                pos_acceptor = conformer_molB.getAtomPos(id_acceptor);
 
-                if(calculateDistance(pos_donor, pos_acceptor) <= distRequired && (calculateAngle(pos_hydrogen, pos_donor, pos_acceptor) <= maxAngleRequired || calculateAngle(pos_hydrogen, pos_donor, pos_acceptor) <= minAngleRequired)){
-                    output(ligand.name, /*Protein Atom ID*/, "Hydrogen donor", pos_donor.x, pos_donor.y, pos_donor.z, /*Ligand Atom ID*/, "Hydrogen acceptor", pos_acceptor.x, pos_acceptor.y, pos_acceptor.z, "Hydrogen Bond", distance);   //call output funcion
+                distance = calculateDistance(pos_donor, pos_acceptor);
+                float angle = calculateAngle(pos_hydrogen, pos_donor, pos_acceptor);
+
+                if(distance <= distance_required && isAngleInRange(angle, minAngle_required, maxAngle_required)){
+                    output(molB.name, /*Protein Atom ID*/, "Hydrogen donor", pos_donor.x, pos_donor.y, pos_donor.z, /*Ligand Atom ID*/, "Hydrogen acceptor", pos_acceptor.x, pos_acceptor.y, pos_acceptor.z, "Hydrogen Bond", distance);   //call output funcion
                 }
         
             }
@@ -294,7 +301,49 @@ void findHydrogenBond(const Molecule& molA, const Molecule& molB, const FoundPat
     }
 }
 
-void findHalogenBond(const Molecule& molA, const Molecule& molB, const FoundPatterns& molA_patterns, const FoundPatterns& molB_patterns, const bool protA_ligB, std::ofstream &outputFile){}
+void findHalogenBond(const Molecule& molA, const Molecule& molB, const FoundPatterns& molA_patterns, const FoundPatterns& molB_patterns, const bool protA_ligB, std::ofstream &outputFile){
+    auto molA_pattern = molA_patterns.patternMatches.find(Pattern::Halogen_donor_halogen);
+    auto molB_pattern = molB_patterns.patternMatches.find(Pattern::Halogen_acceptor_any);
+    float distance;
+    float distance_required = 3.5;
+    float minAngle_required_first = 130;
+    float maxAngle_required_first = 180;
+    float minAngle_required_second = 80;
+    float maxAngle_required_second = 140;
+
+    if ((molA_pattern != molA_patterns.patternMatches.end()) && (molB_pattern != molB_patterns.patternMatches.end())){
+        const RDKit::Conformer& conformer_molA = molA.mol.getConformer();  //TODO: move it somewhere else cause they are used by all the interaction's functions
+        const RDKit::Conformer& conformer_molB = molB.mol.getConformer();    
+
+        RDGeom::Point3D& pos_donor, pos_halogen, pos_acceptor, pos_any;
+
+        for(const auto& matchVect_molA : molA_pattern->second){
+            int id_donor = matchVect_molA.at(0).second;
+            int id_halogen = matchVect_molA.at(1).second;
+
+            pos_donor = conformer_molA.getAtomPos(id_donor);
+            pos_halogen = conformer_molA.getAtomPos(id_halogen);
+
+            for(const auto& matchVect_molB : molB_pattern->second){
+                int id_acceptor = matchVect_molB.at(0).second;
+                int id_any = matchVect_molB.at(1).second;
+
+                pos_acceptor = conformer_molB.getAtomPos(id_acceptor);
+                pos_any = conformer_molB.getAtomPos(id_any);
+
+                distance = calculateDistance(pos_donor, pos_acceptor);
+                float firstAngle = calculateAngle(pos_halogen, pos_donor, pos_acceptor);
+                float secondAngle = calculateAngle(pos_acceptor, pos_halogen, pos_any);
+
+                if(distance <= distance_required && isAngleInRange(firstAngle, minAngle_required_first, maxAngle_required_first) && isAngleInRange(secondAngle, minAngle_required_second, maxAngle_required_second)){
+                    output(molB.name, /*Protein Atom ID*/, "Halogen donor", pos_donor.x, pos_donor.y, pos_donor.z, /*Ligand Atom ID*/, "Halogen acceptor", pos_acceptor.x, pos_acceptor.y, pos_acceptor.z, "Halogen Bond", distance);   //call output funcion
+                }
+        
+            }
+        }
+    }
+}
+
 void findIonicInteraction(const Molecule& molA, const Molecule& molB, const FoundPatterns& molA_patterns, const FoundPatterns& molB_patterns, const bool protA_ligB, std::ofstream &outputFile){
     auto tmpA = molA_patterns.patternMatches.find(Pattern::Cation);
     auto tmpB = molB_patterns.patternMatches.find(Pattern::Anion);
@@ -359,7 +408,7 @@ void findMetalCoordination(const Molecule& molA, const Molecule& molB, const Fou
 
 }
 
-void identifyInteractions(const vMolecule& protein, const Molecule& ligand, const FoundPatterns& proteinPatterns, const FoundPatterns& ligandPatterns, std::ofstream &outputFile){
+void identifyInteractions(const Molecule& protein, const Molecule& ligand, const FoundPatterns& proteinPatterns, const FoundPatterns& ligandPatterns, std::ofstream &outputFile){
     //every function will need to serch all the interactions of that type and for every one found call the output function that adds them to the CSV file
     
     findHydrophobicInteraction(protein, ligand, proteinPatterns, ligandPatterns, true, outputFile);
