@@ -28,8 +28,7 @@ enum class Pattern {
     Halogen_acceptor_any,
     Anion,
     Cation,
-    Aromatic_ring5,
-    Aromatic_ring6,
+    Aromatic_ring,
     Metal,
     Chelated,
 };
@@ -97,7 +96,6 @@ void output(std::string name_molA, std::string name_molB, std::string atom_id_mo
 
 struct SMARTSPattern {
     Pattern pattern;
-    int numAtoms;
     std::string smartsString;
 };
 struct FoundPatterns {
@@ -122,17 +120,16 @@ struct Molecule {   //This struct is used to save ich mol with it's name
 // ---------------------------------------------------- OTHER UTILITIES -----------------------------------------------------------------------
 
 SMARTSPattern smartsPatterns[] = {
-    {Pattern::Hydrophobic , 1, "[c,s,Br,I,S&H0&v2,$([D3,D4;#6])&!$([#6]~[#7,#8,#9])&!$([#6X4H0]);+0]"},
-    {Pattern::Hydrogen_donor_H, 2, "[$([O,S;+0]),$([N;v3,v4&+1]),n+0]-[H]"},
-    {Pattern::Hydrogen_acceptor, 1, "[#7&!$([nX3])&!$([NX3]-*=[O,N,P,S])&!$([NX3]-[a])&!$([Nv4&+1]),O&!$([OX2](C)C=O)&!$(O(~a)~a)&!$(O=N-*)&!$([O-]-N=O),o+0,F&$(F-[#6])&!$(F-[#6][F,Cl,Br,I])]"},
-    {Pattern::Halogen_donor_halogen, 2, "[#6,#7,Si,F,Cl,Br,I]-[Cl,Br,I,At]"},
-    {Pattern::Halogen_acceptor_any, 2, "[#7,#8,P,S,Se,Te,a;!+{1-}][*]"},
-    {Pattern::Anion, 1, "[-{1-},$(O=[C,S,P]-[O-])]"},
-    {Pattern::Cation, 1, "[+{1-},$([NX3&!$([NX3]-O)]-[C]=[NX3+])]"},
-    {Pattern::Aromatic_ring5, 5, "[a;r5]1:[a;r5]:[a;r5]:[a;r5]:[a;r5]:1"},
-    {Pattern::Aromatic_ring6, 6, "[a;r6]1:[a;r6]:[a;r6]:[a;r6]:[a;r6]:[a;r6]:1"},
-    {Pattern::Metal, 1, "[Ca,Cd,Co,Cu,Fe,Mg,Mn,Ni,Zn]"},
-    {Pattern::Chelated, 1, "[O,#7&!$([nX3])&!$([NX3]-*=[!#6])&!$([NX3]-[a])&!$([NX4]),-{1-};!+{1-}]"}
+    {Pattern::Hydrophobic , "[c,s,Br,I,S&H0&v2,$([D3,D4;#6])&!$([#6]~[#7,#8,#9])&!$([#6X4H0]);+0]"},
+    {Pattern::Hydrogen_donor_H, "[$([O,S;+0]),$([N;v3,v4&+1]),n+0]-[H]"},
+    {Pattern::Hydrogen_acceptor, "[#7&!$([nX3])&!$([NX3]-*=[O,N,P,S])&!$([NX3]-[a])&!$([Nv4&+1]),O&!$([OX2](C)C=O)&!$(O(~a)~a)&!$(O=N-*)&!$([O-]-N=O),o+0,F&$(F-[#6])&!$(F-[#6][F,Cl,Br,I])]"},
+    {Pattern::Halogen_donor_halogen, "[#6,#7,Si,F,Cl,Br,I]-[Cl,Br,I,At]"},
+    {Pattern::Halogen_acceptor_any, "[#7,#8,P,S,Se,Te,a;!+{1-}][*]"},
+    {Pattern::Anion, "[-{1-},$(O=[C,S,P]-[O-])]"},
+    {Pattern::Cation, "[+{1-},$([NX3&!$([NX3]-O)]-[C]=[NX3+])]"},
+    {Pattern::Aromatic_ring, "[a;r5]1:[a;r5]:[a;r5]:[a;r5]:[a;r5]:1|[a;r6]1:[a;r6]:[a;r6]:[a;r6]:[a;r6]:[a;r6]:1"},
+    {Pattern::Metal, "[Ca,Cd,Co,Cu,Fe,Mg,Mn,Ni,Zn]"},
+    {Pattern::Chelated, "[O,#7&!$([nX3])&!$([NX3]-*=[!#6])&!$([NX3]-[a])&!$([NX4]),-{1-};!+{1-}]"}
 };
 
 const int smartsPatternsCount = sizeof(smartsPatterns) / sizeof(SMARTSPattern);
@@ -146,8 +143,7 @@ std::string PatternToString(Pattern pattern) {
         case Pattern::Halogen_acceptor_any: return "Halogen_acceptor_any"; 
         case Pattern::Anion: return "Anion"; 
         case Pattern::Cation: return "Cation"; 
-        case Pattern::Aromatic_ring5: return "Aromatic_ring5"; 
-        case Pattern::Aromatic_ring6: return "Aromatic_ring6";
+        case Pattern::Aromatic_ring: return "Aromatic_ring"; 
         case Pattern::Metal: return "Metal"; 
         case Pattern::Chelated: return "Chelated";
         default:    return "Unknown";
@@ -253,6 +249,26 @@ bool isAngleInRange(float angle, float minAngle, float maxAngle){
     return (angle >= minAngle && angle <= maxAngle) ? true : false;
 }
 
+RDGeom::Point3D calculateCentroid(std::vector<RDGeom::Point3D>& pos_points_ring){   // calculates the centroid for a vector of 3D points
+    RDGeom::Point3D centroid(0, 0, 0);
+    
+    for(const auto& point : pos_points_ring){
+        centroid += point;
+    }
+
+    centroid /= static_cast<double>(pos_points_ring.size());
+    return centroid;
+}
+
+RDGeom::Point3D calculateNormalVector(RDGeom::Point3D &pos_a, RDGeom::Point3D &pos_b, RDGeom::Point3D &pos_c){  // calculates the normal vector to the plane identified by the 3 points in input (assuming they are not in line)
+    RDGeom::Point3D vect_ab = pos_b - pos_a;
+    RDGeom::Point3D vect_ac = pos_c - pos_a;
+
+    RDGeom::Point3D normal = vect_ab.crossProduct(vect_ac);
+    normal.normalize();
+    return normal;
+}
+
 // ------------------------------------------------------- INTERACTIONS --------------------------------------------------------------------------
 
 void findHydrophobicInteraction(const Molecule& molA, const Molecule& molB, const FoundPatterns& molA_patterns, const FoundPatterns& molB_patterns, const RDKit::Conformer& conformer_molA, const RDKit::Conformer& conformer_molB, const bool protA_ligB){
@@ -278,7 +294,7 @@ void findHydrophobicInteraction(const Molecule& molA, const Molecule& molB, cons
                 distance = calculateDistance(pos_a, pos_b);
 
                 if (distance <= distRequired){
-                    output(molA.name, molB.name, /*Protein Atom ID*/, "Hydrophobic", posProt.x, posProt.y, posProt.z, /*Ligand Atom ID*/, "Hydrophobic", posLig.x, posLig.y, posLig.z, "Hydrophobic", distance, protA_ligB);
+                    output(molA.name, molB.name, /*Protein Atom ID*/, "Hydrophobic", pos_a.x, pos_a.y, pos_a.z, /*Ligand Atom ID*/, "Hydrophobic", pos_b.x, pos_b.y, pos_b.z, "Hydrophobic", distance, protA_ligB);
                 }
             }
         }
@@ -373,11 +389,11 @@ void findIonicInteraction(const Molecule& molA, const Molecule& molB, const Foun
     unsigned int indx_molB;
     conformer_molA = molA.mol.getConformer();
     conformer_molB = molB.mol.getConformer();
-    RDGeom::Point3D& pos_a;
-    RDGeom::Point3D& pos_b;
+    RDGeom::Point3D& pos_a, pos_b;
     float distRequired = 4.5;
     float distance;
 
+    // Find cation-anion interaction
     if ((tmpA != molA_patterns.patternMatches.end()) && (tmpB != molB_patterns.patternMatches.end())){
         for (const auto& matchVectA : tmpA->second){
                 indx_molA = matchVectA.second;
@@ -388,14 +404,44 @@ void findIonicInteraction(const Molecule& molA, const Molecule& molB, const Foun
                 distance = calculateDistance(pos_a, pos_b);
 
                 if (distance <= distRequired){
-                    output(molA.name, molB.name, /*Protein Atom ID*/, "Cation", posProt.x, posProt.y, posProt.z, /*Ligand Atom ID*/, "Anion", posLig.x, posLig.y, posLig.z, "Ionic", distance, protA_ligB);
+                    output(molA.name, molB.name, /*Protein Atom ID*/, "Cation", pos_a.x, pos_a.y, pos_a.z, /*Ligand Atom ID*/, "Anion", pos_b.x, pos_b.y, pos_b.z, "Ionic", distance, protA_ligB);
                 }
             }
         }
     }
+    
+    // Find cation-aromatic_ring interaction
+    tmpB = molB_patterns.patternMatches.find(Pattern::Aromatic_ring);
+    if ((tmpA != molA_patterns.patternMatches.end()) && (tmpB != molB_patterns.patternMatches.end())){
+        float angle;
+        float minAngle_required = 0;
+        float maxAngle_required = 30;
+        RDGeom::Point3D& centroid, normal, pos_c;
+        std::vector<RDGeom::Point3D> pos_points_ring;
+        for (const auto& matchVectA : tmpA->second){    // Iterats on the Cations patterns
+                indx_molA = matchVectA.second;
+                pos_a = conformer_molA.getAtomPos(indx_molA);
+            for(const auto& matchVectB : tmpB->second){ // Iterats on the Aromatic ring patterns
+                pos_points_ring.clear();
+                for(const auto& pairs_molB : matchVectB){   //for every pair <atom in the pattern, atom in the mol>
+                    indx_molB = pairs_molB.second;  // currently is not necessary but it could become when we clarify how AtomIDs shoud work
+                    pos_b = conformer_molB.getAtomPos(indx_molB);
+                    pos_points_ring.push_back(pos_b);   // fils the vector containing the positions in 3D space of the ring atoms
+                }
+                centroid = calculateCentroid(pos_points_ring);
+                distance = calculateDistance(pos_a, centroid);
 
-    //NEEDS TO BE COMPLEATED
-
+                if (distance <= distRequired){
+                    normal = calculateNormalVector(pos_points_ring.at(0), pos_points_ring.at(1), pos_points_ring.at(2));    //finds the normal vector to the plane defined by the aromatic ring atoms
+                    pos_c = normal + centroid; // it' a point on the line normal to the ring and passing throw the centroid
+                    angle = calculateAngle(centroid, pos_c, pos_a); // calculates the angle that must be <30 for the Ionic bond requirements
+                    if(isAngleInRange(angle, minAngle_required, maxAngle_required)){
+                        output(molA.name, molB.name, /*Protein Atom ID*/, "Cation", pos_a.x, pos_a.y, pos_a.z, /*Ligand Atom ID*/, "Aromatic_ring", pos_b.x, pos_b.y, pos_b.z, "Ionic", distance, protA_ligB);
+                    }
+                }       //FOR THE FUTURE: CHECK THAT THE LOGIC IS CORRECT AND WORKS WHEN pos_c and pos_a are on different sides of the aromatic ring plane
+            }
+        }
+    }
 }
 void findPiStacking(const Molecule& molA, const Molecule& molB, const FoundPatterns& molA_patterns, const FoundPatterns& molB_patterns, const RDKit::Conformer& conformer_molA, const RDKit::Conformer& conformer_molB, const bool protA_ligB){}
 
@@ -422,7 +468,7 @@ void findMetalCoordination(const Molecule& molA, const Molecule& molB, const Fou
                 distance = calculateDistance(pos_a, pos_b);
 
                 if (distance <= distRequired){
-                    output(molA.name, molB.name, /*Protein Atom ID*/, "Metal", posProt.x, posProt.y, posProt.z, /*Ligand Atom ID*/, "Chelated", posLig.x, posLig.y, posLig.z, "Metal", distance, protA_ligB);
+                    output(molA.name, molB.name, /*Protein Atom ID*/, "Metal", pos_a.x, pos_a.y, pos_a.z, /*Ligand Atom ID*/, "Chelated", pos_b.x, pos_b.y, pos_b.z, "Metal", distance, protA_ligB);
                 }
             }
         }
