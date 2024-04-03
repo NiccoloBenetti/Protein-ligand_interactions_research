@@ -205,14 +205,14 @@ std::string removeFileExtension(const std::string& filename) {
 
 // ----------------------------------------------------- GEMETRIC FUNCTIONS --------------------------------------------------------------------
 
-float calculateDistance(RDGeom::Point3D &p_a, RDGeom::Point3D &p_b){  //calculates euclidian distance between 2 points located in a 3D space
-    return (p_a - p_b).length();
+float calculateDistance(RDGeom::Point3D &pos_a, RDGeom::Point3D &pos_b){  //calculates euclidian distance between 2 points located in a 3D space
+    return (pos_a - pos_b).length();
 }
-//Having three points located in a 3D space, imagine them forming a triangle: this function calculates the angle on the vertex p_a 
-float calculateAngle(RDGeom::Point3D &p_a, RDGeom::Point3D &p_b, RDGeom::Point3D &p_c){
-    float ab = calculateDistance(p_a, p_b);
-    float bc = calculateDistance(p_b, p_c);
-    float ac = calculateDistance(p_a, p_c);
+//Having three points located in a 3D space, imagine them forming a triangle: this function calculates the angle on the vertex pos_a 
+float calculateAngle(RDGeom::Point3D &pos_a, RDGeom::Point3D &pos_b, RDGeom::Point3D &pos_c){
+    float ab = calculateDistance(pos_a, pos_b);
+    float bc = calculateDistance(pos_b, pos_c);
+    float ac = calculateDistance(pos_a, pos_c);
 
     return sin((pow(ab, 2) + pow(ac, 2) - pow(bc, 2)) / (2*ab*ac));
 }
@@ -223,38 +223,37 @@ bool isAngleInRange(float angle, float minAngle, float maxAngle){
 
 // ------------------------------------------------------- INTERACTIONS --------------------------------------------------------------------------
 
-void findHydrophobicInteraction(const Molecule& molA, const Molecule& molB, const FoundPatterns& molA_patterns, const FoundPatterns& molB_patterns, const RDKit::Conformer& proteinConformer, const RDKit::Conformer& ligandConformer, const bool protA_ligB){
+void findHydrophobicInteraction(const Molecule& molA, const Molecule& molB, const FoundPatterns& molA_patterns, const FoundPatterns& molB_patterns, const RDKit::Conformer& conformer_molA, const RDKit::Conformer& conformer_molB, const bool protA_ligB){
     auto tmpA = molA_patterns.patternMatches.find(Pattern::Hydrophobic);
     auto tmpB = molB_patterns.patternMatches.find(Pattern::Hydrophobic);
 
     //Check that there is at list one Hydrophobic pattern found on both protein and ligand if yes serches and prints the bonds
     if ((tmpA != molA_patterns.patternMatches.end()) && (tmpB != molB_patterns.patternMatches.end())){
-        unsigned int indx_molA;  //will contain the atom index for the protein in order to calculate distances
-        unsigned int indx_molB;   //same for the ligand
-        const RDKit::Conformer& confA = molA.mol.getConformer();  //Conformer is a class that represents the 2D or 3D conformation of a molecule
-        const RDKit::Conformer& confB = molB.mol.getConformer();    //we get an istance of the 3D conformation of both protein and ligand
-        RDGeom::Point3D& p_a;    //are needed to easly manage x,y,z cordinates that will be feeded to the output funcion
-        RDGeom::Point3D& p_b;
+        conformer_molA = molA.mol.getConformer();  //Conformer is a class that represents the 2D or 3D conformation of a molecule
+        conformer_molB = molB.mol.getConformer();    //we get an istance of the 3D conformation of both protein and ligand
+        RDGeom::Point3D& pos_a, pos_b;    //are needed to easly manage x,y,z cordinates that will be feeded to the output funcion
         float distRequired = 4.5;
         float distance;
+        unsigned int indx_molA;     //will contain the atom index for molA in order to calculate distances
+        unsigned int indx_molB;
 
-        for (const auto& matchVectA : tmpA->second){  //for every block of the vector containing Hydrophobic matcher in proteinPatterns.patterMatches
-                indx_molA = matchVectA.second;
-                p_a = confA.getAtomPos(indx_molA);
-            for(const auto& matchVectB : tmpB->second){ //for every block of the vector containing Hydrophobic matcher in ligandPatterns.patternMatches
+        for (const auto& matchVectA : tmpA->second){  //for every block of the vector containing Hydrophobic matcher in molA_patterns.patterMatches
+                indx_molA = matchVectA.second;  //gets the index number of the atom in molA that we whant to check
+                pos_a = conformer_molA.getAtomPos(indx_molA);
+            for(const auto& matchVectB : tmpB->second){ //for every block of the vector containing Hydrophobic matcher in molB_patterns.patternMatches
                 indx_molB = matchVectB.second;
-                p_b = confB.getAtomPos(indx_molB);
-                distance = calculateDistance(p_a, p_b);
+                pos_b = conformer_molB.getAtomPos(indx_molB);
+                distance = calculateDistance(pos_a, pos_b);
 
                 if (distance <= distRequired){
-                    output(molA.name, molB.name, /*Protein Atom ID*/, "Hydrophobic", posProt.x, posProt.y, posProt.z, /*Ligand Atom ID*/, "Hydrophobic", posLig.x, posLig.y, posLig.z, "Hydrophobic", distance, protA_ligB);   //call output funcion
+                    output(molA.name, molB.name, /*Protein Atom ID*/, "Hydrophobic", posProt.x, posProt.y, posProt.z, /*Ligand Atom ID*/, "Hydrophobic", posLig.x, posLig.y, posLig.z, "Hydrophobic", distance, protA_ligB);
                 }
             }
         }
     }
 }
 
-void findHydrogenBond(const Molecule& molA, const Molecule& molB, const FoundPatterns& molA_patterns, const FoundPatterns& molB_patterns, const RDKit::Conformer& proteinConformer, const RDKit::Conformer& ligandConformer, const bool protA_ligB){
+void findHydrogenBond(const Molecule& molA, const Molecule& molB, const FoundPatterns& molA_patterns, const FoundPatterns& molB_patterns, const RDKit::Conformer& conformer_molA, const RDKit::Conformer& conformer_molB, const bool protA_ligB){
     auto molA_pattern = molA_patterns.patternMatches.find(Pattern::Hydrogen_donor_H);
     auto molB_pattern = molB_patterns.patternMatches.find(Pattern::Hydrogen_acceptor);
     float distance;
@@ -263,8 +262,8 @@ void findHydrogenBond(const Molecule& molA, const Molecule& molB, const FoundPat
     float maxAngle_required = 180;
 
     if ((molA_pattern != molA_patterns.patternMatches.end()) && (molB_pattern != molB_patterns.patternMatches.end())){
-        const RDKit::Conformer& conformer_molA = molA.mol.getConformer();  //TODO: move it somewhere else cause they are used by all the interaction's functions
-        const RDKit::Conformer& conformer_molB = molB.mol.getConformer();    
+        conformer_molA = molA.mol.getConformer();
+        conformer_molB = molB.mol.getConformer();    
 
         RDGeom::Point3D& pos_donor, pos_hydrogen, pos_acceptor;
 
@@ -284,7 +283,7 @@ void findHydrogenBond(const Molecule& molA, const Molecule& molB, const FoundPat
                 float angle = calculateAngle(pos_hydrogen, pos_donor, pos_acceptor);
 
                 if(distance <= distance_required && isAngleInRange(angle, minAngle_required, maxAngle_required)){
-                    output(molB.name, /*Protein Atom ID*/, "Hydrogen donor", pos_donor.x, pos_donor.y, pos_donor.z, /*Ligand Atom ID*/, "Hydrogen acceptor", pos_acceptor.x, pos_acceptor.y, pos_acceptor.z, "Hydrogen Bond", distance);   //call output funcion
+                    output(molB.name, /*Protein Atom ID*/, "Hydrogen donor", pos_donor.x, pos_donor.y, pos_donor.z, /*Ligand Atom ID*/, "Hydrogen acceptor", pos_acceptor.x, pos_acceptor.y, pos_acceptor.z, "Hydrogen Bond", distance);
                 }
         
             }
@@ -292,7 +291,7 @@ void findHydrogenBond(const Molecule& molA, const Molecule& molB, const FoundPat
     }
 }
 
-void findHalogenBond(const Molecule& molA, const Molecule& molB, const FoundPatterns& molA_patterns, const FoundPatterns& molB_patterns, const RDKit::Conformer& proteinConformer, const RDKit::Conformer& ligandConformer, const bool protA_ligB){
+void findHalogenBond(const Molecule& molA, const Molecule& molB, const FoundPatterns& molA_patterns, const FoundPatterns& molB_patterns, const RDKit::Conformer& conformer_molA, const RDKit::Conformer& conformer_molB, const bool protA_ligB){
     auto molA_pattern = molA_patterns.patternMatches.find(Pattern::Halogen_donor_halogen);
     auto molB_pattern = molB_patterns.patternMatches.find(Pattern::Halogen_acceptor_any);
     float distance;
@@ -303,8 +302,8 @@ void findHalogenBond(const Molecule& molA, const Molecule& molB, const FoundPatt
     float maxAngle_required_second = 140;
 
     if ((molA_pattern != molA_patterns.patternMatches.end()) && (molB_pattern != molB_patterns.patternMatches.end())){
-        const RDKit::Conformer& conformer_molA = molA.mol.getConformer();  //TODO: move it somewhere else cause they are used by all the interaction's functions
-        const RDKit::Conformer& conformer_molB = molB.mol.getConformer();    
+        conformer_molA = molA.mol.getConformer();
+        conformer_molB = molB.mol.getConformer();    
 
         RDGeom::Point3D& pos_donor, pos_halogen, pos_acceptor, pos_any;
 
@@ -327,7 +326,7 @@ void findHalogenBond(const Molecule& molA, const Molecule& molB, const FoundPatt
                 float secondAngle = calculateAngle(pos_acceptor, pos_halogen, pos_any);
 
                 if(distance <= distance_required && isAngleInRange(firstAngle, minAngle_required_first, maxAngle_required_first) && isAngleInRange(secondAngle, minAngle_required_second, maxAngle_required_second)){
-                    output(molB.name, /*Protein Atom ID*/, "Halogen donor", pos_donor.x, pos_donor.y, pos_donor.z, /*Ligand Atom ID*/, "Halogen acceptor", pos_acceptor.x, pos_acceptor.y, pos_acceptor.z, "Halogen Bond", distance);   //call output funcion
+                    output(molB.name, /*Protein Atom ID*/, "Halogen donor", pos_donor.x, pos_donor.y, pos_donor.z, /*Ligand Atom ID*/, "Halogen acceptor", pos_acceptor.x, pos_acceptor.y, pos_acceptor.z, "Halogen Bond", distance);
                 }
         
             }
@@ -335,29 +334,29 @@ void findHalogenBond(const Molecule& molA, const Molecule& molB, const FoundPatt
     }
 }
 
-void findIonicInteraction(const Molecule& molA, const Molecule& molB, const FoundPatterns& molA_patterns, const FoundPatterns& molB_patterns, const RDKit::Conformer& proteinConformer, const RDKit::Conformer& ligandConformer, const bool protA_ligB){
+void findIonicInteraction(const Molecule& molA, const Molecule& molB, const FoundPatterns& molA_patterns, const FoundPatterns& molB_patterns, const RDKit::Conformer& conformer_molA, const RDKit::Conformer& conformer_molB, const bool protA_ligB){
     auto tmpA = molA_patterns.patternMatches.find(Pattern::Cation);
     auto tmpB = molB_patterns.patternMatches.find(Pattern::Anion);
-    unsigned int indx_molA;  //will contain the atom index for the protein in order to calculate distances
-    unsigned int indx_molB;   //same for the ligand
-    const RDKit::Conformer& confA = molA.mol.getConformer();  //Conformer is a class that represents the 2D or 3D conformation of a molecule
-    const RDKit::Conformer& confB = molB.mol.getConformer();    //we get an istance of the 3D conformation of both protein and ligand
-    RDGeom::Point3D& p_a;    //are needed to easly manage x,y,z cordinates that will be feeded to the output funcion
-    RDGeom::Point3D& p_b;
+    unsigned int indx_molA;
+    unsigned int indx_molB;
+    conformer_molA = molA.mol.getConformer();
+    conformer_molB = molB.mol.getConformer();
+    RDGeom::Point3D& pos_a;
+    RDGeom::Point3D& pos_b;
     float distRequired = 4.5;
     float distance;
 
     if ((tmpA != molA_patterns.patternMatches.end()) && (tmpB != molB_patterns.patternMatches.end())){
-        for (const auto& matchVectA : tmpA->second){  //for every block of the vector containing Hydrophobic matcher in proteinPatterns.patterMatches
+        for (const auto& matchVectA : tmpA->second){
                 indx_molA = matchVectA.second;
-                p_a = confA.getAtomPos(indx_molA);
-            for(const auto& matchVectB : tmpB->second){ //for every block of the vector containing Hydrophobic matcher in ligandPatterns.patternMatches
+                pos_a = conformer_molA.getAtomPos(indx_molA);
+            for(const auto& matchVectB : tmpB->second){
                 indx_molB = matchVectB.second;
-                p_b = confB.getAtomPos(indx_molB);
-                distance = calculateDistance(p_a, p_b);
+                pos_b = conformer_molB.getAtomPos(indx_molB);
+                distance = calculateDistance(pos_a, pos_b);
 
                 if (distance <= distRequired){
-                    output(molA.name, molB.name, /*Protein Atom ID*/, "Cation", posProt.x, posProt.y, posProt.z, /*Ligand Atom ID*/, "Anion", posLig.x, posLig.y, posLig.z, "Ionic", distance, protA_ligB);   //call output funcion
+                    output(molA.name, molB.name, /*Protein Atom ID*/, "Cation", posProt.x, posProt.y, posProt.z, /*Ligand Atom ID*/, "Anion", posLig.x, posLig.y, posLig.z, "Ionic", distance, protA_ligB);
                 }
             }
         }
@@ -366,32 +365,32 @@ void findIonicInteraction(const Molecule& molA, const Molecule& molB, const Foun
     //NEEDS TO BE COMPLEATED
 
 }
-void findPiStacking(const Molecule& molA, const Molecule& molB, const FoundPatterns& molA_patterns, const FoundPatterns& molB_patterns, const RDKit::Conformer& proteinConformer, const RDKit::Conformer& ligandConformer, const bool protA_ligB){}
+void findPiStacking(const Molecule& molA, const Molecule& molB, const FoundPatterns& molA_patterns, const FoundPatterns& molB_patterns, const RDKit::Conformer& conformer_molA, const RDKit::Conformer& conformer_molB, const bool protA_ligB){}
 
-void findMetalCoordination(const Molecule& molA, const Molecule& molB, const FoundPatterns& molA_patterns, const FoundPatterns& molB_patterns, const RDKit::Conformer& proteinConformer, const RDKit::Conformer& ligandConformer, const bool protA_ligB){
+void findMetalCoordination(const Molecule& molA, const Molecule& molB, const FoundPatterns& molA_patterns, const FoundPatterns& molB_patterns, const RDKit::Conformer& conformer_molA, const RDKit::Conformer& conformer_molB, const bool protA_ligB){
     auto tmpA = molA_patterns.patternMatches.find(Pattern::Metal);
     auto tmpB = molB_patterns.patternMatches.find(Pattern::Chelated);
 
     if ((tmpA != molA_patterns.patternMatches.end()) && (tmpB != molB_patterns.patternMatches.end())){
-        unsigned int indx_molA;  //will contain the atom index for the protein in order to calculate distances
-        unsigned int indx_molB;   //same for the ligand
-        const RDKit::Conformer& confA = molA.mol.getConformer();  //Conformer is a class that represents the 2D or 3D conformation of a molecule
-        const RDKit::Conformer& confB = molB.mol.getConformer();    //we get an istance of the 3D conformation of both protein and ligand
-        RDGeom::Point3D& p_a;    //are needed to easly manage x,y,z cordinates that will be feeded to the output funcion
-        RDGeom::Point3D& p_b;
+        unsigned int indx_molA;
+        unsigned int indx_molB;
+        conformer_molA = molA.mol.getConformer();
+        conformer_molB = molB.mol.getConformer();
+        RDGeom::Point3D& pos_a;    
+        RDGeom::Point3D& pos_b;
         float distRequired = 2.8;
         float distance;
 
-        for (const auto& matchVectA : tmpA->second){  //for every block of the vector containing Hydrophobic matcher in proteinPatterns.patterMatches
+        for (const auto& matchVectA : tmpA->second){
                 indx_molA = matchVectA.second;
-                p_a = confA.getAtomPos(indx_molA);
-            for(const auto& matchVectB : tmpB->second){ //for every block of the vector containing Hydrophobic matcher in ligandPatterns.patternMatches
+                pos_a = conformer_molA.getAtomPos(indx_molA);
+            for(const auto& matchVectB : tmpB->second){
                 indx_molB = matchVectB.second;
-                p_b = confB.getAtomPos(indx_molB);
-                distance = calculateDistance(p_a, p_b);
+                pos_b = conformer_molB.getAtomPos(indx_molB);
+                distance = calculateDistance(pos_a, pos_b);
 
                 if (distance <= distRequired){
-                    output(molA.name, molB.name, /*Protein Atom ID*/, "Metal", posProt.x, posProt.y, posProt.z, /*Ligand Atom ID*/, "Chelated", posLig.x, posLig.y, posLig.z, "Metal", distance, protA_ligB);   //call output funcion
+                    output(molA.name, molB.name, /*Protein Atom ID*/, "Metal", posProt.x, posProt.y, posProt.z, /*Ligand Atom ID*/, "Chelated", posLig.x, posLig.y, posLig.z, "Metal", distance, protA_ligB);
                 }
             }
         }
@@ -402,22 +401,23 @@ void findMetalCoordination(const Molecule& molA, const Molecule& molB, const Fou
 
 void identifyInteractions(const Molecule& protein, const Molecule& ligand, const FoundPatterns& proteinPatterns, const FoundPatterns& ligandPatterns, const RDKit::Conformer& proteinConformer, const RDKit::Conformer& ligandConformer){
     //every function will need to serch all the interactions of that type and for every one found call the output function that adds them to the CSV file
+    //considering some interactions can be formed both ways (cation-anion ; anion-cation) we call the find function two times  
     
     findHydrophobicInteraction(protein, ligand, proteinPatterns, ligandPatterns, proteinConformer, ligandConformer, true);
 
     findHydrogenBond(protein, ligand, proteinPatterns, ligandPatterns, proteinConformer, ligandConformer, true);
-    findHydrogenBond(protein, ligand, proteinPatterns, ligandPatterns, proteinConformer, ligandConformer, false);
+    findHydrogenBond(ligand, protein, ligandPatterns, proteinPatterns, ligandConformer, proteinConformer, false);
 
     findHalogenBond(protein, ligand, proteinPatterns, ligandPatterns, proteinConformer, ligandConformer, true);
-    findHalogenBond(protein, ligand, proteinPatterns, ligandPatterns, proteinConformer, ligandConformer, false);
+    findHalogenBond(ligand, protein, ligandPatterns, proteinPatterns, ligandConformer, proteinConformer, false);
 
     findIonicInteraction(protein, ligand, proteinPatterns, ligandPatterns, proteinConformer, ligandConformer, true);
-    findIonicInteraction(protein, ligand, proteinPatterns, ligandPatterns, proteinConformer, ligandConformer, false);
+    findIonicInteraction(ligand, protein, ligandPatterns, proteinPatterns, ligandConformer, proteinConformer, false);
 
     findPiStacking(protein, ligand, proteinPatterns, ligandPatterns, proteinConformer, ligandConformer, true);
 
     findMetalCoordination(protein, ligand, proteinPatterns, ligandPatterns, proteinConformer, ligandConformer, true);
-    findMetalCoordination(protein, ligand, proteinPatterns, ligandPatterns, proteinConformer, ligandConformer, false);
+    findMetalCoordination(ligand, protein, ligandPatterns, proteinPatterns, ligandConformer, proteinConformer, false);
 }
 
 // for eatch pattern of the Pattern enum looks if it is in the mol and saves all the matches in the MatchVectType field of the map inside FoundPatterns.
