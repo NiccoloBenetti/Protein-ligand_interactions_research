@@ -8,6 +8,7 @@
 #include <memory>
 #include <cmath>
 #include <GraphMol/Conformer.h>
+#include <GraphMol/MonomerInfo.h>
 #include <GraphMol/GraphMol.h>
 #include <GraphMol/SmilesParse/SmilesParse.h>
 #include <GraphMol/SmilesParse/SmilesWrite.h>
@@ -201,6 +202,37 @@ std::string removeFileExtension(const std::string& filename) {
     size_t lastdot = filename.find_last_of(".");
     if (lastdot == std::string::npos) return filename;
     return filename.substr(0, lastdot);
+}
+
+// Creates the PROTEIN_ATOM_ID and LIGAND_ATOM_ID attributes for the CSV file
+void getProtLigAtomID(const Molecule& molA, const Molecule& molB, unsigned int indx_molA, unsigned int indx_molB, std::string &atom_id_prot, std::string &atom_id_lig, const bool protA_ligB){
+
+    if(protA_ligB){ // If molA contains the protein and molB the ligand
+        //Creation of PROTEIN_ATOM_ID
+        const RDKit::Atom *atomA = molA.mol.getAtomWithIdx(indx_molA);
+        if(atomA->getMonomerInfo() && atomA->getMonomerInfo()->getMonomerType() == RDKit::AtomMonomerInfo::PDBRESIDUE){ //Checks that there is MonomerInfo in this atom NB. the second condition is for additional safty but can be removed
+            const RDKit::AtomPDBResidueInfo *pdbInfo = static_cast<const RDKit::AtomPDBResidueInfo*>(atomA->getMonomerInfo());  //since there is no AtomPDBResidueInfo getter available a cast is needed
+            atom_id_prot = pdbInfo->getChainId() + "." + pdbInfo->getResidueName() + std::to_string(pdbInfo->getResidueNumber()) + "." + pdbInfo->getName();    // Combines the desired values for the protein atom in a string
+        }else{
+            atom_id_prot = "Error: " + std::to_string(index_molA) + "(" + atomA->getSymbol() + ")" + " no correct MonomerInfo"; // prints Error and some basic info to identify the atom 
+            std::cout<< "Error: " + std::to_string(indx_molA) + "(" + atomA->getSymbol() + ")" + " has no correct MonomerInfo.";
+        }
+        //Cration of LIGAND_ATOM_ID
+        const RDKit::Atom *atomB = molB.mol.getAtomWithIdx(indx_molB);
+        atom_id_lig = std::to_string(indx_molB) + "(" + atomB->getSymbol() + ")";   //Combines the desired values for the ligand atom in a string
+    }
+    else{  // If molA contains the ligand and molB the protein
+        const RDKit::Atom *atomB = molB.mol.getAtomWithIdx(indx_molB);
+        if(atomB->getMonomerInfo() && atomB->getMonomerInfo()->getMonomerType() == RDKit::AtomMonomerInfo::PDBRESIDUE){
+            const RDKit::AtomPDBResidueInfo *pdbInfo = static_cast<const RDKit::AtomPDBResidueInfo*>(atomB->getMonomerInfo());
+            atom_id_prot = pdbInfo->getChainId() + "." + pdbInfo->getResidueName() + std::to_string(pdbInfo->getResidueNumber()) + "." + pdbInfo->getName();
+        }else{
+            atom_id_prot = "Error: " + std::to_string(index_molB) + "(" + atomB->getSymbol() + ")" + " no correct MonomerInfo";
+            std::cout<< "Error: " + std::to_string(indx_molB) + "(" + atomB->getSymbol() + ")" + " has no correct MonomerInfo.";
+        }
+        const RDKit::Atom *atomA = molA.mol.getAtomWithIdx(indx_molA);
+        atom_id_lig = std::to_string(indx_molA) + "(" + atomA->getSymbol() + ")";
+    }
 }
 
 // ----------------------------------------------------- GEMETRIC FUNCTIONS --------------------------------------------------------------------
