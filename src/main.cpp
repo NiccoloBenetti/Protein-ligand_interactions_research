@@ -201,35 +201,35 @@ std::string removeFileExtension(const std::string& filename) {
 }
 
 // Creates the PROTEIN_ATOM_ID and LIGAND_ATOM_ID attributes for the CSV file
-void getProtLigAtomID(const Molecule& molA, const Molecule& molB, unsigned int indx_molA, unsigned int indx_molB, std::string &atom_id_prot, std::string &atom_id_lig, const bool protA_ligB){
+// void getProtLigAtomID(const Molecule& molA, const Molecule& molB, unsigned int indx_molA, unsigned int indx_molB, std::string &atom_id_prot, std::string &atom_id_lig, const bool protA_ligB){
 
-    if(protA_ligB){ // If molA contains the protein and molB the ligand
-        //Creation of PROTEIN_ATOM_ID
-        const RDKit::Atom *atomA = molA.mol.getAtomWithIdx(indx_molA);
-        if(atomA->getMonomerInfo() && atomA->getMonomerInfo()->getMonomerType() == RDKit::AtomMonomerInfo::PDBRESIDUE){ //Checks that there is MonomerInfo in this atom NB. the second condition is for additional safty but can be removed
-            const RDKit::AtomPDBResidueInfo *pdbInfo = static_cast<const RDKit::AtomPDBResidueInfo*>(atomA->getMonomerInfo());  //since there is no AtomPDBResidueInfo getter available a cast is needed
-            atom_id_prot = pdbInfo->getChainId() + "." + pdbInfo->getResidueName() + std::to_string(pdbInfo->getResidueNumber()) + "." + pdbInfo->getName();    // Combines the desired values for the protein atom in a string
-        }else{
-            atom_id_prot = "Error: " + std::to_string(index_molA) + "(" + atomA->getSymbol() + ")" + " no correct MonomerInfo"; // prints Error and some basic info to identify the atom 
-            std::cout<< "Error: " + std::to_string(indx_molA) + "(" + atomA->getSymbol() + ")" + " has no correct MonomerInfo.";
-        }
-        //Cration of LIGAND_ATOM_ID
-        const RDKit::Atom *atomB = molB.mol.getAtomWithIdx(indx_molB);
-        atom_id_lig = std::to_string(indx_molB) + "(" + atomB->getSymbol() + ")";   //Combines the desired values for the ligand atom in a string
-    }
-    else{  // If molA contains the ligand and molB the protein
-        const RDKit::Atom *atomB = molB.mol.getAtomWithIdx(indx_molB);
-        if(atomB->getMonomerInfo() && atomB->getMonomerInfo()->getMonomerType() == RDKit::AtomMonomerInfo::PDBRESIDUE){
-            const RDKit::AtomPDBResidueInfo *pdbInfo = static_cast<const RDKit::AtomPDBResidueInfo*>(atomB->getMonomerInfo());
-            atom_id_prot = pdbInfo->getChainId() + "." + pdbInfo->getResidueName() + std::to_string(pdbInfo->getResidueNumber()) + "." + pdbInfo->getName();
-        }else{
-            atom_id_prot = "Error: " + std::to_string(index_molB) + "(" + atomB->getSymbol() + ")" + " no correct MonomerInfo";
-            std::cout<< "Error: " + std::to_string(indx_molB) + "(" + atomB->getSymbol() + ")" + " has no correct MonomerInfo.";
-        }
-        const RDKit::Atom *atomA = molA.mol.getAtomWithIdx(indx_molA);
-        atom_id_lig = std::to_string(indx_molA) + "(" + atomA->getSymbol() + ")";
-    }
-}
+//     if(protA_ligB){ // If molA contains the protein and molB the ligand
+//         //Creation of PROTEIN_ATOM_ID
+//         const RDKit::Atom *atomA = molA.mol.getAtomWithIdx(indx_molA);
+//         if(atomA->getMonomerInfo() && atomA->getMonomerInfo()->getMonomerType() == RDKit::AtomMonomerInfo::PDBRESIDUE){ //Checks that there is MonomerInfo in this atom NB. the second condition is for additional safty but can be removed
+//             const RDKit::AtomPDBResidueInfo *pdbInfo = static_cast<const RDKit::AtomPDBResidueInfo*>(atomA->getMonomerInfo());  //since there is no AtomPDBResidueInfo getter available a cast is needed
+//             atom_id_prot = pdbInfo->getChainId() + "." + pdbInfo->getResidueName() + std::to_string(pdbInfo->getResidueNumber()) + "." + pdbInfo->getName();    // Combines the desired values for the protein atom in a string
+//         }else{
+//             atom_id_prot = "Error: " + std::to_string(index_molA) + "(" + atomA->getSymbol() + ")" + " no correct MonomerInfo"; // prints Error and some basic info to identify the atom 
+//             std::cout<< "Error: " + std::to_string(indx_molA) + "(" + atomA->getSymbol() + ")" + " has no correct MonomerInfo.";
+//         }
+//         //Cration of LIGAND_ATOM_ID
+//         const RDKit::Atom *atomB = molB.mol.getAtomWithIdx(indx_molB);
+//         atom_id_lig = std::to_string(indx_molB) + "(" + atomB->getSymbol() + ")";   //Combines the desired values for the ligand atom in a string
+//     }
+//     else{  // If molA contains the ligand and molB the protein
+//         const RDKit::Atom *atomB = molB.mol.getAtomWithIdx(indx_molB);
+//         if(atomB->getMonomerInfo() && atomB->getMonomerInfo()->getMonomerType() == RDKit::AtomMonomerInfo::PDBRESIDUE){
+//             const RDKit::AtomPDBResidueInfo *pdbInfo = static_cast<const RDKit::AtomPDBResidueInfo*>(atomB->getMonomerInfo());
+//             atom_id_prot = pdbInfo->getChainId() + "." + pdbInfo->getResidueName() + std::to_string(pdbInfo->getResidueNumber()) + "." + pdbInfo->getName();
+//         }else{
+//             atom_id_prot = "Error: " + std::to_string(index_molB) + "(" + atomB->getSymbol() + ")" + " no correct MonomerInfo";
+//             std::cout<< "Error: " + std::to_string(indx_molB) + "(" + atomB->getSymbol() + ")" + " has no correct MonomerInfo.";
+//         }
+//         const RDKit::Atom *atomA = molA.mol.getAtomWithIdx(indx_molA);
+//         atom_id_lig = std::to_string(indx_molA) + "(" + atomA->getSymbol() + ")";
+//     }
+// }
 
 // ----------------------------------------------------- GEMETRIC FUNCTIONS --------------------------------------------------------------------
 
@@ -290,22 +290,22 @@ void findHydrophobicInteraction(const Molecule& molA, const Molecule& molB, cons
 
     //Check that there is at list one Hydrophobic pattern found on both protein and ligand if yes serches and prints the bonds
     if ((tmpA != molA_patterns.patternMatches.end()) && (tmpB != molB_patterns.patternMatches.end())){
-        RDGeom::Point3D& pos_a, pos_b;    //are needed to easly manage x,y,z cordinates that will be feeded to the output funcion
+        RDGeom::Point3D pos_a, pos_b;    //are needed to easly manage x,y,z cordinates that will be feeded to the output funcion
         float distRequired = 4.5;
         float distance;
         unsigned int indx_molA;     //will contain the atom index for molA in order to calculate distances
         unsigned int indx_molB;
 
         for (const auto& matchVectA : tmpA->second){  //for every block of the vector containing Hydrophobic matcher in molA_patterns.patterMatches
-                indx_molA = matchVectA.second;  //gets the index number of the atom in molA that we whant to check
+                indx_molA = matchVectA.at(0).second;  //gets the index number of the atom in molA that we whant to check
                 pos_a = conformer_molA.getAtomPos(indx_molA);
             for(const auto& matchVectB : tmpB->second){ //for every block of the vector containing Hydrophobic matcher in molB_patterns.patternMatches
-                indx_molB = matchVectB.second;
+                indx_molB = matchVectB.at(0).second;
                 pos_b = conformer_molB.getAtomPos(indx_molB);
                 distance = calculateDistance(pos_a, pos_b);
 
                 if (distance <= distRequired){
-                    output(molA.name, molB.name, /*Protein Atom ID*/, "Hydrophobic", pos_a.x, pos_a.y, pos_a.z, /*Ligand Atom ID*/, "Hydrophobic", pos_b.x, pos_b.y, pos_b.z, "Hydrophobic", distance, protA_ligB);
+                    //output(molA.name, molB.name, /*Protein Atom ID*/, "Hydrophobic", pos_a.x, pos_a.y, pos_a.z, /*Ligand Atom ID*/, "Hydrophobic", pos_b.x, pos_b.y, pos_b.z, "Hydrophobic", distance, protA_ligB);
                 }
             }
         }
@@ -320,27 +320,26 @@ void findHydrogenBond(const Molecule& molA, const Molecule& molB, const FoundPat
     float minAngle_required = 130;
     float maxAngle_required = 180;
 
-    if ((molA_pattern != molA_patterns.patternMatches.end()) && (molB_pattern != molB_patterns.patternMatches.end())){  
+    if ((molA_pattern != molA_patterns.patternMatches.end()) && (molB_pattern != molB_patterns.patternMatches.end())){ // if there are the researched patterns in both the molucles  
 
-        RDGeom::Point3D& pos_donor, pos_hydrogen, pos_acceptor;
+        RDGeom::Point3D pos_donor, pos_hydrogen, pos_acceptor; 
 
-        for(const auto& matchVect_molA : molA_pattern->second){
-            int id_donor = matchVect_molA.at(0).second;
-            int id_hydrogen = matchVect_molA.at(1).second;
+        for(const auto& matchVect_molA : molA_pattern->second){ // for each Hydrogen_donor-H pattern in molA
+            int id_donor = matchVect_molA.at(0).second; // gets the donor id
+            int id_hydrogen = matchVect_molA.at(1).second; //gets the hydrogen id
 
-            pos_donor = conformer_molA.getAtomPos(id_donor);
-            pos_hydrogen = conformer_molA.getAtomPos(id_hydrogen);
+            pos_donor = conformer_molA.getAtomPos(id_donor); // gets the 3D positioning of the donor
+            pos_hydrogen = conformer_molA.getAtomPos(id_hydrogen); // gets the 3D positioning of the hydrogen
 
-            for(const auto& matchVect_molB : molB_pattern->second){
-                int id_acceptor = matchVect_molB.at(0).second;
+            for(const auto& matchVect_molB : molB_pattern->second){ //for each Hydrogen_acceptor pattern in molB
+                int id_acceptor = matchVect_molB.at(0).second; // gets the acceptor id
+                pos_acceptor = conformer_molB.getAtomPos(id_acceptor); // gets the 3D positioning of the acceptor
 
-                pos_acceptor = conformer_molB.getAtomPos(id_acceptor);
-
-                distance = calculateDistance(pos_donor, pos_acceptor);
-                float angle = calculateAngle(pos_hydrogen, pos_donor, pos_acceptor);
+                distance = calculateDistance(pos_donor, pos_acceptor); //finds the distance between donor and acceptor
+                float angle = calculateAngle(pos_hydrogen, pos_donor, pos_acceptor); //finds the angle between the donor-hydrogen atoms and the hydrogen-acceptor atoms
 
                 if(distance <= distance_required && isAngleInRange(angle, minAngle_required, maxAngle_required)){
-                    output(molB.name, /*Protein Atom ID*/, "Hydrogen donor", pos_donor.x, pos_donor.y, pos_donor.z, /*Ligand Atom ID*/, "Hydrogen acceptor", pos_acceptor.x, pos_acceptor.y, pos_acceptor.z, "Hydrogen Bond", distance);
+                    //output(molB.name, /*Protein Atom ID*/, "Hydrogen donor", pos_donor.x, pos_donor.y, pos_donor.z, /*Ligand Atom ID*/, "Hydrogen acceptor", pos_acceptor.x, pos_acceptor.y, pos_acceptor.z, "Hydrogen Bond", distance);
                 }
         
             }
@@ -358,30 +357,30 @@ void findHalogenBond(const Molecule& molA, const Molecule& molB, const FoundPatt
     float minAngle_required_second = 80;
     float maxAngle_required_second = 140;
 
-    if ((molA_pattern != molA_patterns.patternMatches.end()) && (molB_pattern != molB_patterns.patternMatches.end())){
+    if ((molA_pattern != molA_patterns.patternMatches.end()) && (molB_pattern != molB_patterns.patternMatches.end())){ // if there are the researched patterns in both the molucles
 
-        RDGeom::Point3D& pos_donor, pos_halogen, pos_acceptor, pos_any;
+        RDGeom::Point3D pos_donor, pos_halogen, pos_acceptor, pos_any;
 
-        for(const auto& matchVect_molA : molA_pattern->second){
-            int id_donor = matchVect_molA.at(0).second;
-            int id_halogen = matchVect_molA.at(1).second;
+        for(const auto& matchVect_molA : molA_pattern->second){ // for each Halogen_donor-halogen pattern in molA
+            int id_donor = matchVect_molA.at(0).second; // gets the donor id
+            int id_halogen = matchVect_molA.at(1).second; //gets the halogen id
 
-            pos_donor = conformer_molA.getAtomPos(id_donor);
-            pos_halogen = conformer_molA.getAtomPos(id_halogen);
+            pos_donor = conformer_molA.getAtomPos(id_donor); // gets the 3D positioning of the donor
+            pos_halogen = conformer_molA.getAtomPos(id_halogen); // gets the 3D positioning of the halogen
 
-            for(const auto& matchVect_molB : molB_pattern->second){
-                int id_acceptor = matchVect_molB.at(0).second;
-                int id_any = matchVect_molB.at(1).second;
+            for(const auto& matchVect_molB : molB_pattern->second){ // for each Halogen_donor-halogen pattern in molB
+                int id_acceptor = matchVect_molB.at(0).second; // gets the acceptor id
+                int id_any = matchVect_molB.at(1).second; // gets the any id
 
-                pos_acceptor = conformer_molB.getAtomPos(id_acceptor);
-                pos_any = conformer_molB.getAtomPos(id_any);
+                pos_acceptor = conformer_molB.getAtomPos(id_acceptor); // gets the 3D positioning of the acceptor
+                pos_any = conformer_molB.getAtomPos(id_any); // gets the 3D positioning of the any
 
-                distance = calculateDistance(pos_donor, pos_acceptor);
-                float firstAngle = calculateAngle(pos_halogen, pos_donor, pos_acceptor);
-                float secondAngle = calculateAngle(pos_acceptor, pos_halogen, pos_any);
+                distance = calculateDistance(pos_donor, pos_acceptor); //finds the distance between donor and acceptor
+                float firstAngle = calculateAngle(pos_halogen, pos_donor, pos_acceptor); //finds the angle between the donor-halogen atoms and the halogen-acceptor atoms
+                float secondAngle = calculateAngle(pos_acceptor, pos_halogen, pos_any); //the angle between the halogen-acceptor atoms and the acceptor-any atoms
 
                 if(distance <= distance_required && isAngleInRange(firstAngle, minAngle_required_first, maxAngle_required_first) && isAngleInRange(secondAngle, minAngle_required_second, maxAngle_required_second)){
-                    output(molB.name, /*Protein Atom ID*/, "Halogen donor", pos_donor.x, pos_donor.y, pos_donor.z, /*Ligand Atom ID*/, "Halogen acceptor", pos_acceptor.x, pos_acceptor.y, pos_acceptor.z, "Halogen Bond", distance);
+                    //output(molB.name, /*Protein Atom ID*/, "Halogen donor", pos_donor.x, pos_donor.y, pos_donor.z, /*Ligand Atom ID*/, "Halogen acceptor", pos_acceptor.x, pos_acceptor.y, pos_acceptor.z, "Halogen Bond", distance);
                 }
         
             }
@@ -394,22 +393,22 @@ void findIonicInteraction(const Molecule& molA, const Molecule& molB, const Foun
     auto tmpB = molB_patterns.patternMatches.find(Pattern::Anion);
     unsigned int indx_molA;
     unsigned int indx_molB;
-    RDGeom::Point3D& pos_a, pos_b;
+    RDGeom::Point3D pos_a, pos_b;
     float distRequired = 4.5;
     float distance;
 
     // Find cation-anion interaction
     if ((tmpA != molA_patterns.patternMatches.end()) && (tmpB != molB_patterns.patternMatches.end())){
         for (const auto& matchVectA : tmpA->second){
-                indx_molA = matchVectA.second;
+                indx_molA = matchVectA.at(0).second;
                 pos_a = conformer_molA.getAtomPos(indx_molA);
             for(const auto& matchVectB : tmpB->second){
-                indx_molB = matchVectB.second;
+                indx_molB = matchVectB.at(0).second;
                 pos_b = conformer_molB.getAtomPos(indx_molB);
                 distance = calculateDistance(pos_a, pos_b);
 
                 if (distance <= distRequired){
-                    output(molA.name, molB.name, /*Protein Atom ID*/, "Cation", pos_a.x, pos_a.y, pos_a.z, /*Ligand Atom ID*/, "Anion", pos_b.x, pos_b.y, pos_b.z, "Ionic", distance, protA_ligB);
+                    //output(molA.name, molB.name, /*Protein Atom ID*/, "Cation", pos_a.x, pos_a.y, pos_a.z, /*Ligand Atom ID*/, "Anion", pos_b.x, pos_b.y, pos_b.z, "Ionic", distance, protA_ligB);
                 }
             }
         }
@@ -421,10 +420,10 @@ void findIonicInteraction(const Molecule& molA, const Molecule& molB, const Foun
         float angle;
         float minAngle_required = 0;
         float maxAngle_required = 30;
-        RDGeom::Point3D& centroid, normal, pos_c;
+        RDGeom::Point3D centroid, normal, pos_c;
         std::vector<RDGeom::Point3D> pos_points_ring;
         for (const auto& matchVectA : tmpA->second){    // Iterats on the Cations patterns
-                indx_molA = matchVectA.second;
+                indx_molA = matchVectA.at(0).second;
                 pos_a = conformer_molA.getAtomPos(indx_molA);
             for(const auto& matchVectB : tmpB->second){ // Iterats on the Aromatic ring patterns
                 pos_points_ring.clear();
@@ -441,7 +440,7 @@ void findIonicInteraction(const Molecule& molA, const Molecule& molB, const Foun
                     pos_c = normal + centroid; // it' a point on the line normal to the ring and passing throw the centroid
                     angle = calculateAngle(centroid, pos_c, pos_a); // calculates the angle that must be <30 for the Ionic bond requirements
                     if(isAngleInRange(angle, minAngle_required, maxAngle_required)){
-                        output(molA.name, molB.name, /*Protein Atom ID*/, "Cation", pos_a.x, pos_a.y, pos_a.z, /*Ligand Atom ID*/, "Aromatic_ring", pos_b.x, pos_b.y, pos_b.z, "Ionic", distance, protA_ligB);
+                        //output(molA.name, molB.name, /*Protein Atom ID*/, "Cation", pos_a.x, pos_a.y, pos_a.z, /*Ligand Atom ID*/, "Aromatic_ring", pos_b.x, pos_b.y, pos_b.z, "Ionic", distance, protA_ligB);
                     }
                 }       //FOR THE FUTURE: CHECK THAT THE LOGIC IS CORRECT AND WORKS WHEN pos_c and pos_a are on different sides of the aromatic ring plane
             }
@@ -449,19 +448,19 @@ void findIonicInteraction(const Molecule& molA, const Molecule& molB, const Foun
     }
 }
 
-//two planes facing esach other: SANDWICH | two planes perpendicular: T-SHAPE
+//two planes facing each other: SANDWICH | two planes perpendicular: T-SHAPE
 void findPiStacking(const Molecule& molA, const Molecule& molB, const FoundPatterns& molA_patterns, const FoundPatterns& molB_patterns, const RDKit::Conformer& conformer_molA, const RDKit::Conformer& conformer_molB, const bool protA_ligB){
     auto molA_pattern = molA_patterns.patternMatches.find(Pattern::Aromatic_ring);
     auto molB_pattern = molB_patterns.patternMatches.find(Pattern::Aromatic_ring);
     unsigned int id_pointA, id_pointB;
-    RDGeom::Point3D& pos_pointA, pos_pointB;
+    RDGeom::Point3D pos_pointA, pos_pointB;
     float distRequired;
     float distance;
 
     if ((molA_pattern != molA_patterns.patternMatches.end()) && (molB_pattern != molB_patterns.patternMatches.end())){
         float planesAngle;
         float planesAngle_minSandwich = 0;
-        float planesAngle_maxSandwich = 30;
+        float planesAngle_maxSandwich = 30; //TODO: forse tutte queste dichiarazioni vanno spostate
         float planesAngle_minTshape = 50;
         float planesAngle_maxTshape = 90;
 
@@ -469,60 +468,60 @@ void findPiStacking(const Molecule& molA, const Molecule& molB, const FoundPatte
         float normalCentroidAngle_min = 0;
         float normalCentroidAngle_max;
 
-        RDGeom::Point3D& centroidA, centroidB, normalA, normalB, centroidsVector;
+        RDGeom::Point3D centroidA, centroidB, normalA, normalB, centroidsVector;
         std::vector<RDGeom::Point3D> pos_ringA, pos_ringB;
-        for (const auto& matchVect_molA : molA_pattern->second){    // Iterats on the Cations patterns
+
+        for (const auto& matchVect_molA : molA_pattern->second){ // for each aromatic ring found in molA
             pos_ringA.clear();
-            for(const auto& pair_molA : matchVect_molA){   //for every pair <atom in the pattern, atom in the mol>
-                id_pointA = pair_molA.second;  // currently is not necessary but it could become when we clarify how AtomIDs shoud work
+            for(const auto& pair_molA : matchVect_molA){ // creates the aromatic ring B as a vector of points
+                id_pointA = pair_molA.second; 
                 pos_pointA = conformer_molA.getAtomPos(id_pointA);
-                pos_ringA.push_back(pos_pointA);   // fils the vector containing the positions in 3D space of the ring atoms
+                pos_ringA.push_back(pos_pointA);  
             }
             centroidA = calculateCentroid(pos_ringA);
 
-            for(const auto& matchVect_molB : molB_pattern->second){ // Iterats on the Aromatic ring patterns
+            for(const auto& matchVect_molB : molB_pattern->second){ // for each aromatic ring found in molB
                 pos_ringB.clear();
-                for(const auto& pair_molB : matchVect_molB){   //for every pair <atom in the pattern, atom in the mol>
-                    id_pointB = pair_molB.second;  // currently is not necessary but it could become when we clarify how AtomIDs shoud work
+                for(const auto& pair_molB : matchVect_molB){ // creates the aromatic ring B as a vector of points
+                    id_pointB = pair_molB.second;  
                     pos_pointB = conformer_molB.getAtomPos(id_pointB);
-                    pos_ringB.push_back(pos_pointB);   // fils the vector containing the positions in 3D space of the ring atoms
+                    pos_ringB.push_back(pos_pointB);  
                 }
-                centroidB = calculateCentroid(pos_ringB);
+                centroidB = calculateCentroid(pos_ringB); //TODO: controllare se conviene spostare il calcolo dei centroidi e della distanza dentro agli if
 
-                distance = calculateDistance(centroidA, centroidB);
+                distance = calculateDistance(centroidA, centroidB); // gets the distance between the two centroids 
 
-                normalA = calculateNormalVector(pos_ringA.at(0), pos_ringA.at(2), pos_ringA.at(3));
-                normalB = calculateNormalVector(pos_ringB.at(0), pos_ringB.at(2), pos_ringB.at(3));
+                normalA = calculateNormalVector(pos_ringA.at(0), pos_ringA.at(2), pos_ringA.at(3)); // finds the normal vector of the plane of the aromatic ring A
+                normalB = calculateNormalVector(pos_ringB.at(0), pos_ringB.at(2), pos_ringB.at(3)); // finds the normal vector of the plane of the aromatic ring B
 
-                planesAngle = calculateVectorAngle(normalA, normalB);
+                planesAngle = calculateVectorAngle(normalA, normalB); // finds the angle between the two aromatic rings
 
-                if(isAngleInRange(planesAngle, planesAngle_minSandwich, planesAngle_maxSandwich)){ //SANDWICH
+                if(isAngleInRange(planesAngle, planesAngle_minSandwich, planesAngle_maxSandwich)){ // SANDWICH
                     normalCentroidAngle_max = 33;
                     distRequired = 5.5;
 
-                    centroidsVector = centroidB - centroidA; //calculates the vector that links the two centroids
+                    centroidsVector = centroidB - centroidA; // calculates the vector that links the two centroids
 
-                    normalCentroidAngle_A = calculateVectorAngle(centroidsVector, normalA);
-                    normalCentroidAngle_B = calculateVectorAngle(centroidsVector, normalB);
+                    normalCentroidAngle_A = calculateVectorAngle(centroidsVector, normalA); //calculate the angle between the vector that links the two centroids and the normal of ring A
+                    normalCentroidAngle_B = calculateVectorAngle(centroidsVector, normalB); //calculate the angle between the vector that links the two centroids and the normal of ring B
 
                     if(isAngleInRange(distance <= distRequired && normalCentroidAngle_A, normalCentroidAngle_min, normalCentroidAngle_max) && isAngleInRange(normalCentroidAngle_B, normalCentroidAngle_min, normalCentroidAngle_max)){
-                        output(molA.name, molB.name, /*Protein Atom ID*/, "Aromatic_ring", centroidA.x, centroidA.y, centroidA.z, /*Ligand Atom ID*/, "Aromatic_ring", centroidB.x, centroidB.y, centroidB.z, "Pi Stacking", distance, protA_ligB);
+                        //output(molA.name, molB.name, /*Protein Atom ID*/, "Aromatic_ring", centroidA.x, centroidA.y, centroidA.z, /*Ligand Atom ID*/, "Aromatic_ring", centroidB.x, centroidB.y, centroidB.z, "Pi Stacking", distance, protA_ligB);
                     }
                 }
-                else if(isAngleInRange(planesAngle, planesAngle_minTshape, planesAngle_maxTshape)){ //T SHAPE
-                    //T SHAPE
+                else if(isAngleInRange(planesAngle, planesAngle_minTshape, planesAngle_maxTshape)){ // T SHAPE
                     normalCentroidAngle_max = 30;
                     distRequired = 6.5;
 
                     centroidsVector = centroidB - centroidA; //calculates the vector that links the two centroids
 
-                    normalCentroidAngle_A = calculateVectorAngle(centroidsVector, normalA);
-                    normalCentroidAngle_B = calculateVectorAngle(centroidsVector, normalB);
+                    normalCentroidAngle_A = calculateVectorAngle(centroidsVector, normalA); //calculate the angle between the vector that links the two centroids and the normal of ring A
+                    normalCentroidAngle_B = calculateVectorAngle(centroidsVector, normalB); //calculate the angle between the vector that links the two centroids and the normal of ring B
 
                     //TODO: manca il check del quarto punto della docu
 
                     if(isAngleInRange(distance <= distRequired && normalCentroidAngle_A, normalCentroidAngle_min, normalCentroidAngle_max) && isAngleInRange(normalCentroidAngle_B, normalCentroidAngle_min, normalCentroidAngle_max)){
-                        output(molA.name, molB.name, /*Protein Atom ID*/, "Aromatic_ring", centroidA.x, centroidA.y, centroidA.z, /*Ligand Atom ID*/, "Aromatic_ring", centroidB.x, centroidB.y, centroidB.z, "Pi Stacking", distance, protA_ligB);
+                        //output(molA.name, molB.name, /*Protein Atom ID*/, "Aromatic_ring", centroidA.x, centroidA.y, centroidA.z, /*Ligand Atom ID*/, "Aromatic_ring", centroidB.x, centroidB.y, centroidB.z, "Pi Stacking", distance, protA_ligB);
                     }
                 }
             }
@@ -537,21 +536,20 @@ void findMetalCoordination(const Molecule& molA, const Molecule& molB, const Fou
     if ((tmpA != molA_patterns.patternMatches.end()) && (tmpB != molB_patterns.patternMatches.end())){
         unsigned int indx_molA;
         unsigned int indx_molB;
-        RDGeom::Point3D& pos_a;    
-        RDGeom::Point3D& pos_b;
+        RDGeom::Point3D pos_a, pos_b;    
         float distRequired = 2.8;
         float distance;
 
         for (const auto& matchVectA : tmpA->second){
-                indx_molA = matchVectA.second;
+                indx_molA = matchVectA.at(0).second;
                 pos_a = conformer_molA.getAtomPos(indx_molA);
             for(const auto& matchVectB : tmpB->second){
-                indx_molB = matchVectB.second;
+                indx_molB = matchVectB.at(0).second;
                 pos_b = conformer_molB.getAtomPos(indx_molB);
                 distance = calculateDistance(pos_a, pos_b);
 
                 if (distance <= distRequired){
-                    output(molA.name, molB.name, /*Protein Atom ID*/, "Metal", pos_a.x, pos_a.y, pos_a.z, /*Ligand Atom ID*/, "Chelated", pos_b.x, pos_b.y, pos_b.z, "Metal", distance, protA_ligB);
+                    //output(molA.name, molB.name, /*Protein Atom ID*/, "Metal", pos_a.x, pos_a.y, pos_a.z, /*Ligand Atom ID*/, "Chelated", pos_b.x, pos_b.y, pos_b.z, "Metal", distance, protA_ligB);
                 }
             }
         }
@@ -679,19 +677,18 @@ int main(int argc, char *argv[]) {  // First argument: PDB file, then a non fixe
 
     input(argv, argc, molVector);
 
-    identifySubstructs(molVector.at(0).mol.get(), proteinPatterns); // Identifies all the itances of patterns inside the protein
+    identifySubstructs(molVector.at(0).mol.get(), proteinPatterns); // Identifies all the istances of patterns inside the protein
     //printFoundPatterns(proteinPatterns);
     
-    //TODO: we need to find a way to generate the conformers!!
-    const RDKit::Conformer& proteinConformer = molVector.at(0).mol.getConformer(); //Conformer is a class that represents the 2D or 3D conformation of a molecule
+    const RDKit::Conformer& proteinConformer = molVector.at(0).mol->getConformer(); //Conformer is a class that represents the 2D or 3D conformation of a molecule
 
     for(int i = 1; i < argc - 1; i++){ // For every ligand
-        identifySubstructs(molVector.at(i).mol.get(), smartsPatterns, smartsPatternsCount, ligandPatterns); // Identifies all the itances of patterns inside the ligand
+        identifySubstructs(molVector.at(i).mol.get(), ligandPatterns); // Identifies all the istances of patterns inside the ligand
         
-        const RDKit::Conformer& ligandConformer = molVector.at(i).mol.getConformer();  
+        const RDKit::Conformer& ligandConformer = molVector.at(i).mol->getConformer();  
         
         identifyInteractions(molVector.at(0), molVector.at(i), proteinPatterns, ligandPatterns, proteinConformer, ligandConformer); //Identifies all the interactions between protein and ligand and adds the to the CSV file
-        ligandPatterns.clear();
+        ligandPatterns.patternMatches.clear();
     } 
 
     return EXIT_SUCCESS;
