@@ -233,9 +233,18 @@ void getProtLigAtomID(const Molecule& molA, const Molecule& molB, unsigned int i
 
 // ----------------------------------------------------- GEMETRIC FUNCTIONS --------------------------------------------------------------------
 
+float dotProduct(const RDGeom::Point3D &vect_a, const RDGeom::Point3D &vect_b) { //calculates the dot product of a vector
+    return vect_a.x * vect_b.x + vect_a.y * vect_b.y + vect_a.z * vect_b.z;
+}
+
+float norm(const RDGeom::Point3D &vect) { //calculates the norm of a vector
+    return sqrt(vect.x * vect.x + vect.y * vect.y + vect.z * vect.z);
+}
+
 float calculateDistance(RDGeom::Point3D &pos_a, RDGeom::Point3D &pos_b){  //calculates euclidian distance between 2 points located in a 3D space
     return (pos_a - pos_b).length();
 }
+
 //Having three points located in a 3D space, imagine them forming a triangle: this function calculates the angle on the vertex pos_a 
 float calculateAngle(RDGeom::Point3D &pos_a, RDGeom::Point3D &pos_b, RDGeom::Point3D &pos_c){
     float ab = calculateDistance(pos_a, pos_b);
@@ -269,6 +278,10 @@ RDGeom::Point3D calculateNormalVector(RDGeom::Point3D &pos_a, RDGeom::Point3D &p
     return normal;
 }
 
+float calculateVectorAngle(RDGeom::Point3D &vect_a, RDGeom::Point3D &vect_b){ //calculates the angle in degrees between two vectors
+    return std::abs(dotProduct(vect_a, vect_b) / ((norm(vect_a)) * (norm(vect_b))) * 180 / M_PI);
+}
+
 // ------------------------------------------------------- INTERACTIONS --------------------------------------------------------------------------
 
 void findHydrophobicInteraction(const Molecule& molA, const Molecule& molB, const FoundPatterns& molA_patterns, const FoundPatterns& molB_patterns, const RDKit::Conformer& conformer_molA, const RDKit::Conformer& conformer_molB, const bool protA_ligB){
@@ -277,8 +290,6 @@ void findHydrophobicInteraction(const Molecule& molA, const Molecule& molB, cons
 
     //Check that there is at list one Hydrophobic pattern found on both protein and ligand if yes serches and prints the bonds
     if ((tmpA != molA_patterns.patternMatches.end()) && (tmpB != molB_patterns.patternMatches.end())){
-        conformer_molA = molA.mol.getConformer();  //Conformer is a class that represents the 2D or 3D conformation of a molecule
-        conformer_molB = molB.mol.getConformer();    //we get an istance of the 3D conformation of both protein and ligand
         RDGeom::Point3D& pos_a, pos_b;    //are needed to easly manage x,y,z cordinates that will be feeded to the output funcion
         float distRequired = 4.5;
         float distance;
@@ -309,9 +320,7 @@ void findHydrogenBond(const Molecule& molA, const Molecule& molB, const FoundPat
     float minAngle_required = 130;
     float maxAngle_required = 180;
 
-    if ((molA_pattern != molA_patterns.patternMatches.end()) && (molB_pattern != molB_patterns.patternMatches.end())){
-        conformer_molA = molA.mol.getConformer();
-        conformer_molB = molB.mol.getConformer();    
+    if ((molA_pattern != molA_patterns.patternMatches.end()) && (molB_pattern != molB_patterns.patternMatches.end())){  
 
         RDGeom::Point3D& pos_donor, pos_hydrogen, pos_acceptor;
 
@@ -350,8 +359,6 @@ void findHalogenBond(const Molecule& molA, const Molecule& molB, const FoundPatt
     float maxAngle_required_second = 140;
 
     if ((molA_pattern != molA_patterns.patternMatches.end()) && (molB_pattern != molB_patterns.patternMatches.end())){
-        conformer_molA = molA.mol.getConformer();
-        conformer_molB = molB.mol.getConformer();    
 
         RDGeom::Point3D& pos_donor, pos_halogen, pos_acceptor, pos_any;
 
@@ -387,8 +394,6 @@ void findIonicInteraction(const Molecule& molA, const Molecule& molB, const Foun
     auto tmpB = molB_patterns.patternMatches.find(Pattern::Anion);
     unsigned int indx_molA;
     unsigned int indx_molB;
-    conformer_molA = molA.mol.getConformer();
-    conformer_molB = molB.mol.getConformer();
     RDGeom::Point3D& pos_a, pos_b;
     float distRequired = 4.5;
     float distance;
@@ -443,7 +448,87 @@ void findIonicInteraction(const Molecule& molA, const Molecule& molB, const Foun
         }
     }
 }
-void findPiStacking(const Molecule& molA, const Molecule& molB, const FoundPatterns& molA_patterns, const FoundPatterns& molB_patterns, const RDKit::Conformer& conformer_molA, const RDKit::Conformer& conformer_molB, const bool protA_ligB){}
+
+//two planes facing esach other: SANDWICH | two planes perpendicular: T-SHAPE
+void findPiStacking(const Molecule& molA, const Molecule& molB, const FoundPatterns& molA_patterns, const FoundPatterns& molB_patterns, const RDKit::Conformer& conformer_molA, const RDKit::Conformer& conformer_molB, const bool protA_ligB){
+    auto molA_pattern = molA_patterns.patternMatches.find(Pattern::Aromatic_ring);
+    auto molB_pattern = molB_patterns.patternMatches.find(Pattern::Aromatic_ring);
+    unsigned int id_pointA, id_pointB;
+    RDGeom::Point3D& pos_pointA, pos_pointB;
+    float distRequired;
+    float distance;
+
+    if ((molA_pattern != molA_patterns.patternMatches.end()) && (molB_pattern != molB_patterns.patternMatches.end())){
+        float planesAngle;
+        float planesAngle_minSandwich = 0;
+        float planesAngle_maxSandwich = 30;
+        float planesAngle_minTshape = 50;
+        float planesAngle_maxTshape = 90;
+
+        float normalCentroidAngle_A, normalCentroidAngle_B;
+        float normalCentroidAngle_min = 0;
+        float normalCentroidAngle_max;
+
+        RDGeom::Point3D& centroidA, centroidB, normalA, normalB, centroidsVector;
+        std::vector<RDGeom::Point3D> pos_ringA, pos_ringB;
+        for (const auto& matchVect_molA : molA_pattern->second){    // Iterats on the Cations patterns
+            pos_ringA.clear();
+            for(const auto& pair_molA : matchVect_molA){   //for every pair <atom in the pattern, atom in the mol>
+                id_pointA = pair_molA.second;  // currently is not necessary but it could become when we clarify how AtomIDs shoud work
+                pos_pointA = conformer_molA.getAtomPos(id_pointA);
+                pos_ringA.push_back(pos_pointA);   // fils the vector containing the positions in 3D space of the ring atoms
+            }
+            centroidA = calculateCentroid(pos_ringA);
+
+            for(const auto& matchVect_molB : molB_pattern->second){ // Iterats on the Aromatic ring patterns
+                pos_ringB.clear();
+                for(const auto& pair_molB : matchVect_molB){   //for every pair <atom in the pattern, atom in the mol>
+                    id_pointB = pair_molB.second;  // currently is not necessary but it could become when we clarify how AtomIDs shoud work
+                    pos_pointB = conformer_molB.getAtomPos(id_pointB);
+                    pos_ringB.push_back(pos_pointB);   // fils the vector containing the positions in 3D space of the ring atoms
+                }
+                centroidB = calculateCentroid(pos_ringB);
+
+                distance = calculateDistance(centroidA, centroidB);
+
+                normalA = calculateNormalVector(pos_ringA.at(0), pos_ringA.at(2), pos_ringA.at(3));
+                normalB = calculateNormalVector(pos_ringB.at(0), pos_ringB.at(2), pos_ringB.at(3));
+
+                planesAngle = calculateVectorAngle(normalA, normalB);
+
+                if(isAngleInRange(planesAngle, planesAngle_minSandwich, planesAngle_maxSandwich)){ //SANDWICH
+                    normalCentroidAngle_max = 33;
+                    distRequired = 5.5;
+
+                    centroidsVector = centroidB - centroidA; //calculates the vector that links the two centroids
+
+                    normalCentroidAngle_A = calculateVectorAngle(centroidsVector, normalA);
+                    normalCentroidAngle_B = calculateVectorAngle(centroidsVector, normalB);
+
+                    if(isAngleInRange(distance <= distRequired && normalCentroidAngle_A, normalCentroidAngle_min, normalCentroidAngle_max) && isAngleInRange(normalCentroidAngle_B, normalCentroidAngle_min, normalCentroidAngle_max)){
+                        output(molA.name, molB.name, /*Protein Atom ID*/, "Aromatic_ring", centroidA.x, centroidA.y, centroidA.z, /*Ligand Atom ID*/, "Aromatic_ring", centroidB.x, centroidB.y, centroidB.z, "Pi Stacking", distance, protA_ligB);
+                    }
+                }
+                else if(isAngleInRange(planesAngle, planesAngle_minTshape, planesAngle_maxTshape)){ //T SHAPE
+                    //T SHAPE
+                    normalCentroidAngle_max = 30;
+                    distRequired = 6.5;
+
+                    centroidsVector = centroidB - centroidA; //calculates the vector that links the two centroids
+
+                    normalCentroidAngle_A = calculateVectorAngle(centroidsVector, normalA);
+                    normalCentroidAngle_B = calculateVectorAngle(centroidsVector, normalB);
+
+                    //TODO: manca il check del quarto punto della docu
+
+                    if(isAngleInRange(distance <= distRequired && normalCentroidAngle_A, normalCentroidAngle_min, normalCentroidAngle_max) && isAngleInRange(normalCentroidAngle_B, normalCentroidAngle_min, normalCentroidAngle_max)){
+                        output(molA.name, molB.name, /*Protein Atom ID*/, "Aromatic_ring", centroidA.x, centroidA.y, centroidA.z, /*Ligand Atom ID*/, "Aromatic_ring", centroidB.x, centroidB.y, centroidB.z, "Pi Stacking", distance, protA_ligB);
+                    }
+                }
+            }
+        }
+    }
+}
 
 void findMetalCoordination(const Molecule& molA, const Molecule& molB, const FoundPatterns& molA_patterns, const FoundPatterns& molB_patterns, const RDKit::Conformer& conformer_molA, const RDKit::Conformer& conformer_molB, const bool protA_ligB){
     auto tmpA = molA_patterns.patternMatches.find(Pattern::Metal);
@@ -452,8 +537,6 @@ void findMetalCoordination(const Molecule& molA, const Molecule& molB, const Fou
     if ((tmpA != molA_patterns.patternMatches.end()) && (tmpB != molB_patterns.patternMatches.end())){
         unsigned int indx_molA;
         unsigned int indx_molB;
-        conformer_molA = molA.mol.getConformer();
-        conformer_molB = molB.mol.getConformer();
         RDGeom::Point3D& pos_a;    
         RDGeom::Point3D& pos_b;
         float distRequired = 2.8;
@@ -600,7 +683,7 @@ int main(int argc, char *argv[]) {  // First argument: PDB file, then a non fixe
     //printFoundPatterns(proteinPatterns);
     
     //TODO: we need to find a way to generate the conformers!!
-    const RDKit::Conformer& proteinConformer = molVector.at(0).mol.getConformer();
+    const RDKit::Conformer& proteinConformer = molVector.at(0).mol.getConformer(); //Conformer is a class that represents the 2D or 3D conformation of a molecule
 
     for(int i = 1; i < argc - 1; i++){ // For every ligand
         identifySubstructs(molVector.at(i).mol.get(), smartsPatterns, smartsPatternsCount, ligandPatterns); // Identifies all the itances of patterns inside the ligand
