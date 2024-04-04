@@ -201,35 +201,35 @@ std::string removeFileExtension(const std::string& filename) {
 }
 
 // Creates the PROTEIN_ATOM_ID and LIGAND_ATOM_ID attributes for the CSV file
-// void getProtLigAtomID(const Molecule& molA, const Molecule& molB, unsigned int indx_molA, unsigned int indx_molB, std::string &atom_id_prot, std::string &atom_id_lig, const bool protA_ligB){
+ void getProtLigAtomID(const Molecule& molA, const Molecule& molB, unsigned int indx_molA, unsigned int indx_molB, std::string &atom_id_prot, std::string &atom_id_lig, const bool protA_ligB){
 
-//     if(protA_ligB){ // If molA contains the protein and molB the ligand
-//         //Creation of PROTEIN_ATOM_ID
-//         const RDKit::Atom *atomA = molA.mol.getAtomWithIdx(indx_molA);
-//         if(atomA->getMonomerInfo() && atomA->getMonomerInfo()->getMonomerType() == RDKit::AtomMonomerInfo::PDBRESIDUE){ //Checks that there is MonomerInfo in this atom NB. the second condition is for additional safty but can be removed
-//             const RDKit::AtomPDBResidueInfo *pdbInfo = static_cast<const RDKit::AtomPDBResidueInfo*>(atomA->getMonomerInfo());  //since there is no AtomPDBResidueInfo getter available a cast is needed
-//             atom_id_prot = pdbInfo->getChainId() + "." + pdbInfo->getResidueName() + std::to_string(pdbInfo->getResidueNumber()) + "." + pdbInfo->getName();    // Combines the desired values for the protein atom in a string
-//         }else{
-//             atom_id_prot = "Error: " + std::to_string(index_molA) + "(" + atomA->getSymbol() + ")" + " no correct MonomerInfo"; // prints Error and some basic info to identify the atom 
-//             std::cout<< "Error: " + std::to_string(indx_molA) + "(" + atomA->getSymbol() + ")" + " has no correct MonomerInfo.";
-//         }
-//         //Cration of LIGAND_ATOM_ID
-//         const RDKit::Atom *atomB = molB.mol.getAtomWithIdx(indx_molB);
-//         atom_id_lig = std::to_string(indx_molB) + "(" + atomB->getSymbol() + ")";   //Combines the desired values for the ligand atom in a string
-//     }
-//     else{  // If molA contains the ligand and molB the protein
-//         const RDKit::Atom *atomB = molB.mol.getAtomWithIdx(indx_molB);
-//         if(atomB->getMonomerInfo() && atomB->getMonomerInfo()->getMonomerType() == RDKit::AtomMonomerInfo::PDBRESIDUE){
-//             const RDKit::AtomPDBResidueInfo *pdbInfo = static_cast<const RDKit::AtomPDBResidueInfo*>(atomB->getMonomerInfo());
-//             atom_id_prot = pdbInfo->getChainId() + "." + pdbInfo->getResidueName() + std::to_string(pdbInfo->getResidueNumber()) + "." + pdbInfo->getName();
-//         }else{
-//             atom_id_prot = "Error: " + std::to_string(index_molB) + "(" + atomB->getSymbol() + ")" + " no correct MonomerInfo";
-//             std::cout<< "Error: " + std::to_string(indx_molB) + "(" + atomB->getSymbol() + ")" + " has no correct MonomerInfo.";
-//         }
-//         const RDKit::Atom *atomA = molA.mol.getAtomWithIdx(indx_molA);
-//         atom_id_lig = std::to_string(indx_molA) + "(" + atomA->getSymbol() + ")";
-//     }
-// }
+    if(protA_ligB){ // If molA contains the protein and molB the ligand
+        //Creation of PROTEIN_ATOM_ID
+        const RDKit::Atom *atomA = molA.mol->getAtomWithIdx(indx_molA);
+        if(atomA->getMonomerInfo() && atomA->getMonomerInfo()->getMonomerType() == RDKit::AtomMonomerInfo::PDBRESIDUE){ //Checks that there is MonomerInfo in this atom NB. the second condition is for additional safty but can be removed
+            const RDKit::AtomPDBResidueInfo *pdbInfo = static_cast<const RDKit::AtomPDBResidueInfo*>(atomA->getMonomerInfo());  //since there is no AtomPDBResidueInfo getter available a cast is needed
+            atom_id_prot = pdbInfo->getChainId() + "." + pdbInfo->getResidueName() + std::to_string(pdbInfo->getResidueNumber()) + "." + pdbInfo->getName();    // Combines the desired values for the protein atom in a string
+        }else{
+            atom_id_prot = "Error: " + std::to_string(indx_molA) + "(" + atomA->getSymbol() + ")" + " no correct MonomerInfo"; // prints Error and some basic info to identify the atom 
+            std::cout<< "Error: " + std::to_string(indx_molA) + "(" + atomA->getSymbol() + ")" + " has no correct MonomerInfo.";
+        }
+        //Cration of LIGAND_ATOM_ID
+        const RDKit::Atom *atomB = molB.mol->getAtomWithIdx(indx_molB);
+        atom_id_lig = std::to_string(indx_molB) + "(" + atomB->getSymbol() + ")";   //Combines the desired values for the ligand atom in a string
+    }
+    else{  // If molA contains the ligand and molB the protein
+        const RDKit::Atom *atomB = molB.mol->getAtomWithIdx(indx_molB);
+        if(atomB->getMonomerInfo() && atomB->getMonomerInfo()->getMonomerType() == RDKit::AtomMonomerInfo::PDBRESIDUE){
+            const RDKit::AtomPDBResidueInfo *pdbInfo = static_cast<const RDKit::AtomPDBResidueInfo*>(atomB->getMonomerInfo());
+            atom_id_prot = pdbInfo->getChainId() + "." + pdbInfo->getResidueName() + std::to_string(pdbInfo->getResidueNumber()) + "." + pdbInfo->getName();
+        }else{
+            atom_id_prot = "Error: " + std::to_string(indx_molB) + "(" + atomB->getSymbol() + ")" + " no correct MonomerInfo";
+            std::cout<< "Error: " + std::to_string(indx_molB) + "(" + atomB->getSymbol() + ")" + " has no correct MonomerInfo.";
+        }
+        const RDKit::Atom *atomA = molA.mol->getAtomWithIdx(indx_molA);
+        atom_id_lig = std::to_string(indx_molA) + "(" + atomA->getSymbol() + ")";
+    }
+}
 
 // ----------------------------------------------------- GEMETRIC FUNCTIONS --------------------------------------------------------------------
 
@@ -295,6 +295,7 @@ void findHydrophobicInteraction(const Molecule& molA, const Molecule& molB, cons
         float distance;
         unsigned int indx_molA;     //will contain the atom index for molA in order to calculate distances
         unsigned int indx_molB;
+        std::string atom_id_molA, atom_id_molB;
 
         for (const auto& matchVectA : tmpA->second){  //for every block of the vector containing Hydrophobic matcher in molA_patterns.patterMatches
                 indx_molA = matchVectA.at(0).second;  //gets the index number of the atom in molA that we whant to check
@@ -305,7 +306,8 @@ void findHydrophobicInteraction(const Molecule& molA, const Molecule& molB, cons
                 distance = calculateDistance(pos_a, pos_b);
 
                 if (distance <= distRequired){
-                    //output(molA.name, molB.name, /*Protein Atom ID*/, "Hydrophobic", pos_a.x, pos_a.y, pos_a.z, /*Ligand Atom ID*/, "Hydrophobic", pos_b.x, pos_b.y, pos_b.z, "Hydrophobic", distance, protA_ligB);
+                    getProtLigAtomID(molA, molB, indx_molA, indx_molB, atom_id_molA, atom_id_molB, protA_ligB);
+                    output(molA.name, molB.name, atom_id_molA, "Hydrophobic", pos_a.x, pos_a.y, pos_a.z, atom_id_molB, "Hydrophobic", pos_b.x, pos_b.y, pos_b.z, "Hydrophobic", distance, protA_ligB);
                 }
             }
         }
@@ -399,6 +401,7 @@ void findIonicInteraction(const Molecule& molA, const Molecule& molB, const Foun
 
     // Find cation-anion interaction
     if ((tmpA != molA_patterns.patternMatches.end()) && (tmpB != molB_patterns.patternMatches.end())){
+        std::string atom_id_molA, atom_id_molB;
         for (const auto& matchVectA : tmpA->second){
                 indx_molA = matchVectA.at(0).second;
                 pos_a = conformer_molA.getAtomPos(indx_molA);
@@ -408,7 +411,8 @@ void findIonicInteraction(const Molecule& molA, const Molecule& molB, const Foun
                 distance = calculateDistance(pos_a, pos_b);
 
                 if (distance <= distRequired){
-                    //output(molA.name, molB.name, /*Protein Atom ID*/, "Cation", pos_a.x, pos_a.y, pos_a.z, /*Ligand Atom ID*/, "Anion", pos_b.x, pos_b.y, pos_b.z, "Ionic", distance, protA_ligB);
+                    getProtLigAtomID(molA, molB, indx_molA, indx_molB, atom_id_molA, atom_id_molB, protA_ligB);
+                    output(molA.name, molB.name, atom_id_molA, "Cation", pos_a.x, pos_a.y, pos_a.z, atom_id_molB, "Anion", pos_b.x, pos_b.y, pos_b.z, "Ionic", distance, protA_ligB);
                 }
             }
         }
@@ -418,8 +422,8 @@ void findIonicInteraction(const Molecule& molA, const Molecule& molB, const Foun
     tmpB = molB_patterns.patternMatches.find(Pattern::Aromatic_ring);
     if ((tmpA != molA_patterns.patternMatches.end()) && (tmpB != molB_patterns.patternMatches.end())){
         float angle;
-        float minAngle_required = 0;
-        float maxAngle_required = 30;
+        float minAngle_required = 30;
+        float maxAngle_required = 150;
         RDGeom::Point3D centroid, normal, pos_c;
         std::vector<RDGeom::Point3D> pos_points_ring;
         for (const auto& matchVectA : tmpA->second){    // Iterats on the Cations patterns
@@ -439,10 +443,10 @@ void findIonicInteraction(const Molecule& molA, const Molecule& molB, const Foun
                     normal = calculateNormalVector(pos_points_ring.at(0), pos_points_ring.at(1), pos_points_ring.at(2));    //finds the normal vector to the plane defined by the aromatic ring atoms
                     pos_c = normal + centroid; // it' a point on the line normal to the ring and passing throw the centroid
                     angle = calculateAngle(centroid, pos_c, pos_a); // calculates the angle that must be <30 for the Ionic bond requirements
-                    if(isAngleInRange(angle, minAngle_required, maxAngle_required)){
+                    if((!isAngleInRange(angle, minAngle_required, maxAngle_required)) || angle == 30 || angle == 150){  //pos_c and pos_a can be on different sides of the aromatic ring plane
                         //output(molA.name, molB.name, /*Protein Atom ID*/, "Cation", pos_a.x, pos_a.y, pos_a.z, /*Ligand Atom ID*/, "Aromatic_ring", pos_b.x, pos_b.y, pos_b.z, "Ionic", distance, protA_ligB);
                     }
-                }       //FOR THE FUTURE: CHECK THAT THE LOGIC IS CORRECT AND WORKS WHEN pos_c and pos_a are on different sides of the aromatic ring plane
+                }
             }
         }
     }
@@ -539,6 +543,7 @@ void findMetalCoordination(const Molecule& molA, const Molecule& molB, const Fou
         RDGeom::Point3D pos_a, pos_b;    
         float distRequired = 2.8;
         float distance;
+        std::string atom_id_molA, atom_id_molB;
 
         for (const auto& matchVectA : tmpA->second){
                 indx_molA = matchVectA.at(0).second;
@@ -549,7 +554,8 @@ void findMetalCoordination(const Molecule& molA, const Molecule& molB, const Fou
                 distance = calculateDistance(pos_a, pos_b);
 
                 if (distance <= distRequired){
-                    //output(molA.name, molB.name, /*Protein Atom ID*/, "Metal", pos_a.x, pos_a.y, pos_a.z, /*Ligand Atom ID*/, "Chelated", pos_b.x, pos_b.y, pos_b.z, "Metal", distance, protA_ligB);
+                    getProtLigAtomID(molA, molB, indx_molA, indx_molB, atom_id_molA, atom_id_molB, protA_ligB);
+                    output(molA.name, molB.name, atom_id_molA, "Metal", pos_a.x, pos_a.y, pos_a.z, atom_id_molB, "Chelated", pos_b.x, pos_b.y, pos_b.z, "Metal", distance, protA_ligB);
                 }
             }
         }
@@ -580,11 +586,11 @@ void identifyInteractions(const Molecule& protein, const Molecule& ligand, const
 }
 
 // for eatch pattern of the Pattern enum looks if it is in the mol and saves all the matches in the MatchVectType field of the map inside FoundPatterns.
-void identifySubstructs(RDKit::ROMol& mol, FoundPatterns &foundPatterns){
+void identifySubstructs(Molecule& molecule, FoundPatterns &foundPatterns){
     for(int i = 0; i < smartsPatternsCount; i++){
         std::vector<RDKit::MatchVectType> tmpMatchesVector;
         RDKit::ROMol* patternMol = RDKit::SmartsToMol(smartsPatterns[i].smartsString);
-        bool foundMatch = RDKit::SubstructMatch(mol, *patternMol, tmpMatchesVector);
+        bool foundMatch = RDKit::SubstructMatch(molecule.mol, *patternMol, tmpMatchesVector);
 
         if(foundMatch && !tmpMatchesVector.empty()){
             //the number of patterns and their index must be the same inside the Pattern Enum and smartsPatterns
@@ -677,13 +683,13 @@ int main(int argc, char *argv[]) {  // First argument: PDB file, then a non fixe
 
     input(argv, argc, molVector);
 
-    identifySubstructs(molVector.at(0).mol.get(), proteinPatterns); // Identifies all the istances of patterns inside the protein
+    identifySubstructs(molVector.at(0), proteinPatterns); // Identifies all the istances of patterns inside the protein
     //printFoundPatterns(proteinPatterns);
     
     const RDKit::Conformer& proteinConformer = molVector.at(0).mol->getConformer(); //Conformer is a class that represents the 2D or 3D conformation of a molecule
 
     for(int i = 1; i < argc - 1; i++){ // For every ligand
-        identifySubstructs(molVector.at(i).mol.get(), ligandPatterns); // Identifies all the istances of patterns inside the ligand
+        identifySubstructs(molVector.at(i), ligandPatterns); // Identifies all the istances of patterns inside the ligand
         
         const RDKit::Conformer& ligandConformer = molVector.at(i).mol->getConformer();  
         
