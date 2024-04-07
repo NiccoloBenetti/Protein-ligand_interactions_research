@@ -233,6 +233,7 @@ std::string removeFileExtension(const std::string& filename) {
 
 // ----------------------------------------------------- GEMETRIC FUNCTIONS --------------------------------------------------------------------
 
+//TODO: mi sa che le due funzioni dopo ci sono gia in rdkit
 float dotProduct(const RDGeom::Point3D &vect_a, const RDGeom::Point3D &vect_b) { //calculates the dot product of a vector
     return vect_a.x * vect_b.x + vect_a.y * vect_b.y + vect_a.z * vect_b.z;
 }
@@ -241,8 +242,120 @@ float norm(const RDGeom::Point3D &vect) { //calculates the norm of a vector
     return sqrt(vect.x * vect.x + vect.y * vect.y + vect.z * vect.z);
 }
 
+bool isVectorNull(RDGeom::Point3D &v) {
+    return v.length() == 0;
+}
+
+void lineIntersection(float m1, float m2, float q1, float q2, RDGeom::Point3D* intersection){
+    float x, y;
+
+    if(m1 == m2) intersection = nullptr;
+
+    x = (q2 - q2) / (m1 - m2);
+    y = m1*x + q1;
+
+    intersection->x = x;
+    intersection->y = y;
+}
+
+float calculateRotationAngleY(RDGeom::Point3D& D) {
+    return std::atan2(D.z, D.x);
+}
+
+float calculateRotationAngleX(RDGeom::Point3D& D) {
+    return std::atan2(D.z, D.y);
+}
+
+// Applys a rotation to the point around the Y axis, of an angle theta
+void rotateY(RDGeom::Point3D* p, float theta) {
+        double xNew = cos(theta) * p->x + sin(theta) * p->z;
+        double zNew = -sin(theta) * p->x + cos(theta) * p->z;
+        p->x = xNew;
+        p->z = zNew;
+}
+
+// Applys a rotation to the point around the X axis, of an angle theta
+void rotateX(RDGeom::Point3D* p, float theta) { 
+    double yNew = cos(theta) * p->y - sin(theta) * p->z;
+    double zNew = sin(theta) * p->y + cos(theta) * p->z;
+    p->y = yNew;
+    p->z = zNew;
+}
+
+//TODO: bisogna fare una trasformazione spaziale e spostare tutto nel piano 2d x y ALL'INIZIO DELLA FUNZIONE 
+bool doSegmentsIntersect(RDGeom::Point3D &a1, RDGeom::Point3D &b1, RDGeom::Point3D &a2, RDGeom::Point3D &b2){ //checks if two COMPLANAR segments intersect
+    float m1, m2;
+    float q1, q2;
+    RDGeom::Point3D* intersection;
+
+    a1 +- a1;  // |
+    a2 +- a1;  // | --> The two segments gets translated 
+    b1 +- a1;  // | --> so that a1 is the new origin
+    b2 +- a1;  // |
+
+    float thetaX = calculateRotationAngleX(b1); // | Calculate the rotation angles needed for the trasnformation that will
+    float thetaY = calculateRotationAngleY(b1); // | turn the plane in which the segments lay in the XY plane
+
+    rotateX(&b1, thetaX); // Apply the transformation to the point, a rotation around the X axis  
+    rotateY(&b1, thetaY); // Apply the transformation to the point, a rotation around the Y axis
+
+    rotateX(&a2, thetaX); // Apply the transformation to the point, a rotation around the X axis
+    rotateY(&a2, thetaY); // Apply the transformation to the point, a rotation around the Y axis
+
+    rotateX(&b2, thetaX); // Apply the transformation to the point, a rotation around the X axis
+    rotateY(&b2, thetaY); // Apply the transformation to the point, a rotation around the Y axis
+
+    if(a1.x == b1.x || a2.x == b2.x) // vertical line    |  TODO: Gestire questi casi per entrambi i segmenti
+    if(a1.y == b1.y || a2.x == b2.x) //orizzontal line   |
+
+    m1 = (b1.y - a1.y)/(b1.x - a1.x);
+    q1 = - (a1.x * (b1.y - a1.y)/(b1.x - a1.x));
+
+    m2 = (b2.y - a2.y)/(b2.x - a2.x);
+    q2 = - (a2.x * (b2.y - a2.y)/(b2.x - a2.x));
+
+    lineIntersection(m1, q1, m2, q2, intersection); // TODO: da sviluppare funzione che date due rette trova intersezione (se parallele restituisci altro tipo null boh)
+
+    if(!intersection) return false;
+
+    float a, b, c;
+    a = calculateDistance(a1, *intersection);
+    b = calculateDistance(b1, *intersection);
+    c = calculateDistance(a1, b1);
+
+    float d, e, f;
+    d = calculateDistance(a2, *intersection);
+    e = calculateDistance(b2, *intersection);
+    f = calculateDistance(a2, b2);
+
+    if(((a < c) && (b < c)) && ((d < f) && (e < f))) return true;
+}
+
+float calculateDistance(RDGeom::Point2D &pos_a, RDGeom::Point2D &pos_b){  //calculates euclidian distance between 2 points located in a 2D space
+    return (pos_a - pos_b).length();
+}
+
 float calculateDistance(RDGeom::Point3D &pos_a, RDGeom::Point3D &pos_b){  //calculates euclidian distance between 2 points located in a 3D space
     return (pos_a - pos_b).length();
+}
+
+float calculateDistance(RDGeom::Point3D &p1, RDGeom::Point3D &p2, RDGeom::Point3D &p3, RDGeom::Point3D &point) { //calculates euclidian distance between the plane formed by the first three points and the fourth point in a 3D space
+    
+    RDGeom::Point3D normal = calculateNormalVector(p1, p2, p3);
+
+    if(isVectorNull(normal)){
+        return -1; //if the three points are aligned the funtions returns -1
+    }
+
+    normal.normalize();
+
+    double D = -(normal.x * p1.x + normal.y * p1.y + normal.z * p1.z); //caluclates the D coefficient of the plane equation
+
+    // distance formula
+    double distance = std::abs(normal.x * point.x + normal.y * point.y + normal.z * point.z + D) / 
+                      std::sqrt(normal.x * normal.x + normal.y * normal.y + normal.z * normal.z);
+
+    return distance;
 }
 
 //Having three points located in a 3D space, imagine them forming a triangle: this function calculates the angle on the vertex pos_a 
@@ -523,6 +636,11 @@ void findPiStacking(const Molecule& molA, const Molecule& molB, const FoundPatte
                     normalCentroidAngle_B = calculateVectorAngle(centroidsVector, normalB); //calculate the angle between the vector that links the two centroids and the normal of ring B
 
                     //TODO: manca il check del quarto punto della docu
+                    
+                    RDGeom::Point3D P1 = centroidB + normalA * calculateDistance(pos_ringA.at(1), pos_ringA.at(2), pos_ringA.at(3), centroidB);
+
+
+
 
                     if(isAngleInRange(distance <= distRequired && normalCentroidAngle_A, normalCentroidAngle_min, normalCentroidAngle_max) && isAngleInRange(normalCentroidAngle_B, normalCentroidAngle_min, normalCentroidAngle_max)){
                         //output(molA.name, molB.name, /*Protein Atom ID*/, "Aromatic_ring", centroidA.x, centroidA.y, centroidA.z, /*Ligand Atom ID*/, "Aromatic_ring", centroidB.x, centroidB.y, centroidB.z, "Pi Stacking", distance, protA_ligB);
