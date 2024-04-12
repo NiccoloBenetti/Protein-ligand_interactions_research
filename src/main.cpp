@@ -437,6 +437,7 @@ void findHydrogenBond(const Molecule& molA, const Molecule& molB, const FoundPat
 
     if ((molA_pattern != molA_patterns.patternMatches.end()) && (molB_pattern != molB_patterns.patternMatches.end())){ // if there are the researched patterns in both the molucles  
 
+        std::string atom_id_molA, atom_id_molB;
         RDGeom::Point3D pos_donor, pos_hydrogen, pos_acceptor; 
 
         for(const auto& matchVect_molA : molA_pattern->second){ // for each Hydrogen_donor-H pattern in molA
@@ -454,9 +455,9 @@ void findHydrogenBond(const Molecule& molA, const Molecule& molB, const FoundPat
                 float angle = calculateAngle(pos_hydrogen, pos_donor, pos_acceptor); //finds the angle between the donor-hydrogen atoms and the hydrogen-acceptor atoms
 
                 if(distance <= distance_required && isAngleInRange(angle, minAngle_required, maxAngle_required)){
-                    //output(molB.name, /*Protein Atom ID*/, "Hydrogen donor", pos_donor.x, pos_donor.y, pos_donor.z, /*Ligand Atom ID*/, "Hydrogen acceptor", pos_acceptor.x, pos_acceptor.y, pos_acceptor.z, "Hydrogen Bond", distance);
+                    getProtLigAtomID(molA, molB, id_hydrogen, id_acceptor, atom_id_molA, atom_id_molB, protA_ligB);
+                    output(molA.name, molB.name, atom_id_molA, "Hydrogen donor", pos_hydrogen.x, pos_hydrogen.y, pos_hydrogen.z, atom_id_molB, "Hydrogen acceptor", pos_acceptor.x, pos_acceptor.y, pos_acceptor.z, "Hydrogen Bond", distance, protA_ligB);
                 }
-        
             }
         }
     }
@@ -474,6 +475,7 @@ void findHalogenBond(const Molecule& molA, const Molecule& molB, const FoundPatt
 
     if ((molA_pattern != molA_patterns.patternMatches.end()) && (molB_pattern != molB_patterns.patternMatches.end())){ // if there are the researched patterns in both the molucles
 
+        std::string atom_id_molA, atom_id_molB;
         RDGeom::Point3D pos_donor, pos_halogen, pos_acceptor, pos_any;
 
         for(const auto& matchVect_molA : molA_pattern->second){ // for each Halogen_donor-halogen pattern in molA
@@ -495,7 +497,8 @@ void findHalogenBond(const Molecule& molA, const Molecule& molB, const FoundPatt
                 float secondAngle = calculateAngle(pos_acceptor, pos_halogen, pos_any); //the angle between the halogen-acceptor atoms and the acceptor-any atoms
 
                 if(distance <= distance_required && isAngleInRange(firstAngle, minAngle_required_first, maxAngle_required_first) && isAngleInRange(secondAngle, minAngle_required_second, maxAngle_required_second)){
-                    //output(molB.name, /*Protein Atom ID*/, "Halogen donor", pos_donor.x, pos_donor.y, pos_donor.z, /*Ligand Atom ID*/, "Halogen acceptor", pos_acceptor.x, pos_acceptor.y, pos_acceptor.z, "Halogen Bond", distance);
+                    getProtLigAtomID(molA, molB, id_halogen, id_acceptor, atom_id_molA, atom_id_molB, protA_ligB);
+                    output(molA.name, molB.name, atom_id_molA, "Halogen donor", pos_halogen.x, pos_halogen.y, pos_halogen.z, atom_id_molB, "Halogen acceptor", pos_acceptor.x, pos_acceptor.y, pos_acceptor.z, "Halogen Bond", distance, protA_ligB);
                 }
         
             }
@@ -511,10 +514,10 @@ void findIonicInteraction(const Molecule& molA, const Molecule& molB, const Foun
     RDGeom::Point3D pos_a, pos_b;
     float distRequired = 4.5;
     float distance;
+    std::string atom_id_molA, atom_id_molB;
 
     // Find cation-anion interaction
     if ((tmpA != molA_patterns.patternMatches.end()) && (tmpB != molB_patterns.patternMatches.end())){
-        std::string atom_id_molA, atom_id_molB;
         for (const auto& matchVectA : tmpA->second){
                 indx_molA = matchVectA.at(0).second;
                 pos_a = conformer_molA.getAtomPos(indx_molA);
@@ -557,7 +560,8 @@ void findIonicInteraction(const Molecule& molA, const Molecule& molB, const Foun
                     pos_c = normal + centroid; // it' a point on the line normal to the ring and passing throw the centroid
                     angle = calculateAngle(centroid, pos_c, pos_a); // calculates the angle that must be <30 for the Ionic bond requirements
                     if((!isAngleInRange(angle, minAngle_required, maxAngle_required)) || angle == 30 || angle == 150){  //pos_c and pos_a can be on different sides of the aromatic ring plane
-                        //output(molA.name, molB.name, /*Protein Atom ID*/, "Cation", pos_a.x, pos_a.y, pos_a.z, /*Ligand Atom ID*/, "Aromatic_ring", pos_b.x, pos_b.y, pos_b.z, "Ionic", distance, protA_ligB);
+                        getProtLigAtomID(molA, molB, indx_molA, indx_molB, atom_id_molA, atom_id_molB, protA_ligB);
+                        output(molA.name, molB.name, atom_id_molA, "Cation", pos_a.x, pos_a.y, pos_a.z, atom_id_molB, "Aromatic_ring", centroid.x, centroid.y, centroid.z, "Ionic", distance, protA_ligB);  // For aromatic ring the name of the last atom in the vector conteining pair <atom of the pattern, atom of the molecule> and the position of the centroid are printed.
                     }
                 }
             }
