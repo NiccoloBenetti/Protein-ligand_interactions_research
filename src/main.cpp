@@ -231,7 +231,7 @@ std::string removeFileExtension(const std::string& filename) {
     }
 }
 
-// ----------------------------------------------------- GEMETRIC FUNCTIONS --------------------------------------------------------------------
+// ----------------------------------------------------- GEOMETRIC FUNCTIONS --------------------------------------------------------------------
 
 //TODO: mi sa che le due funzioni dopo ci sono gia in rdkit
 float dotProduct(const RDGeom::Point3D &vect_a, const RDGeom::Point3D &vect_b) { //calculates the dot product of a vector
@@ -314,7 +314,7 @@ bool doSegmentsIntersect(RDGeom::Point3D &a1, RDGeom::Point3D &b1, RDGeom::Point
     m2 = (b2.y - a2.y)/(b2.x - a2.x);
     q2 = - (a2.x * (b2.y - a2.y)/(b2.x - a2.x));
 
-    lineIntersection(m1, q1, m2, q2, intersection); // TODO: da sviluppare funzione che date due rette trova intersezione (se parallele restituisci altro tipo null boh)
+    lineIntersection(m1, q1, m2, q2, intersection); // TODO: da sviluppare funzione che date due rette trova intersezione (se parallele restituisci altro, tipo null boh)
 
     if(!intersection) return false;
 
@@ -393,6 +393,15 @@ RDGeom::Point3D calculateNormalVector(RDGeom::Point3D &pos_a, RDGeom::Point3D &p
 
 float calculateVectorAngle(RDGeom::Point3D &vect_a, RDGeom::Point3D &vect_b){ //calculates the angle in degrees between two vectors (the smallest angle of the incidents infinite lines that are formed extending the vectors)
     return std::acos(abs(dotProduct(vect_a, vect_b) / ((norm(vect_a)) * (norm(vect_b))) * 180 / M_PI));
+}
+
+//TODO: questa si dovrà chiamare caluclateVectorAngle e per l'altra si trova un altro nome
+float calculateActualVectorAngle(RDGeom::Point3D &vect_a, RDGeom::Point3D &vect_b){ //calculates the angle in degrees between two vectors
+    return std::acos(dotProduct(vect_a, vect_b) / ((norm(vect_a)) * (norm(vect_b))) * 180 / M_PI);
+}
+
+bool isGreaterThenNinety(float value){ //takes a value, returns true if its greater or equal to 90, false if not
+    return value >= 90 ? true : false;
 }
 
 // ------------------------------------------------------- INTERACTIONS --------------------------------------------------------------------------
@@ -640,8 +649,15 @@ void findPiStacking(const Molecule& molA, const Molecule& molB, const FoundPatte
                     normalCentroidAngle_B = calculateVectorAngle(centroidsVector, normalB); //calculate the angle between the vector that links the two centroids and the normal of ring B
 
                     //TODO: manca il check del quarto punto della docu
+
                     
-                    RDGeom::Point3D P1 = centroidB + normalA * calculateDistance(pos_ringA.at(1), pos_ringA.at(2), pos_ringA.at(3), centroidB);
+                    RDGeom::Point3D P1 = centroidB + normalA * calculateDistance(pos_ringA.at(1), pos_ringA.at(2), pos_ringA.at(3), centroidB) * (isGreaterThenNinety(calculateActualVectorAngle(centroidsVector, normalA)) ? 1 : -1); //finds the point P1
+
+                    int count = 0;
+
+                    for(int k = 0; k < pos_ringA.size(); k++){ //checks if the segment P1-centroidA intersects with every segment of ringA
+                        doSegmentsIntersect(P1, centroidA, pos_ringA.at(k), pos_ringA.at((k+1)%pos_ringA.size())) ? count ++ : count+=0; //counts the number of intersections
+                    }
 
 
 
