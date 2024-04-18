@@ -391,8 +391,8 @@ RDGeom::Point3D calculateNormalVector(RDGeom::Point3D &pos_a, RDGeom::Point3D &p
     return normal;
 }
 
-float calculateVectorAngle(RDGeom::Point3D &vect_a, RDGeom::Point3D &vect_b){ //calculates the angle in degrees between two vectors
-    return std::abs(dotProduct(vect_a, vect_b) / ((norm(vect_a)) * (norm(vect_b))) * 180 / M_PI);
+float calculateVectorAngle(RDGeom::Point3D &vect_a, RDGeom::Point3D &vect_b){ //calculates the angle in degrees between two vectors (the smallest angle of the incidents infinite lines that are formed extending the vectors)
+    return std::acos(abs(dotProduct(vect_a, vect_b) / ((norm(vect_a)) * (norm(vect_b))) * 180 / M_PI));
 }
 
 // ------------------------------------------------------- INTERACTIONS --------------------------------------------------------------------------
@@ -594,7 +594,7 @@ void findPiStacking(const Molecule& molA, const Molecule& molB, const FoundPatte
 
         for (const auto& matchVect_molA : molA_pattern->second){ // for each aromatic ring found in molA
             pos_ringA.clear();
-            for(const auto& pair_molA : matchVect_molA){ // creates the aromatic ring B as a vector of points
+            for(const auto& pair_molA : matchVect_molA){ // creates the aromatic ring A as a vector of points
                 id_pointA = pair_molA.second; 
                 pos_pointA = conformer_molA.getAtomPos(id_pointA);
                 pos_ringA.push_back(pos_pointA);  
@@ -626,7 +626,7 @@ void findPiStacking(const Molecule& molA, const Molecule& molB, const FoundPatte
                     normalCentroidAngle_A = calculateVectorAngle(centroidsVector, normalA); //calculate the angle between the vector that links the two centroids and the normal of ring A
                     normalCentroidAngle_B = calculateVectorAngle(centroidsVector, normalB); //calculate the angle between the vector that links the two centroids and the normal of ring B
 
-                    if(isAngleInRange(distance <= distRequired && normalCentroidAngle_A, normalCentroidAngle_min, normalCentroidAngle_max) && isAngleInRange(normalCentroidAngle_B, normalCentroidAngle_min, normalCentroidAngle_max)){
+                    if(distance <= distRequired && isAngleInRange(normalCentroidAngle_A, normalCentroidAngle_min, normalCentroidAngle_max) && isAngleInRange(normalCentroidAngle_B, normalCentroidAngle_min, normalCentroidAngle_max)){
                         //output(molA.name, molB.name, /*Protein Atom ID*/, "Aromatic_ring", centroidA.x, centroidA.y, centroidA.z, /*Ligand Atom ID*/, "Aromatic_ring", centroidB.x, centroidB.y, centroidB.z, "Pi Stacking", distance, protA_ligB);
                     }
                 }
@@ -646,7 +646,7 @@ void findPiStacking(const Molecule& molA, const Molecule& molB, const FoundPatte
 
 
 
-                    if(isAngleInRange(distance <= distRequired && normalCentroidAngle_A, normalCentroidAngle_min, normalCentroidAngle_max) && isAngleInRange(normalCentroidAngle_B, normalCentroidAngle_min, normalCentroidAngle_max)){
+                    if(distance <= distRequired && isAngleInRange(normalCentroidAngle_A, normalCentroidAngle_min, normalCentroidAngle_max) && isAngleInRange(normalCentroidAngle_B, normalCentroidAngle_min, normalCentroidAngle_max)){
                         //output(molA.name, molB.name, /*Protein Atom ID*/, "Aromatic_ring", centroidA.x, centroidA.y, centroidA.z, /*Ligand Atom ID*/, "Aromatic_ring", centroidB.x, centroidB.y, centroidB.z, "Pi Stacking", distance, protA_ligB);
                     }
                 }
