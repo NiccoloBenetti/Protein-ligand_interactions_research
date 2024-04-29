@@ -156,10 +156,10 @@ void printFoundPatterns(FoundPatterns foundPatterns){
     for(const auto& patternMatch: foundPatterns.patternMatches){
         std::cout << " ------ " << PatternToString(patternMatch.first) << " ------ " << std::endl;
 
-        for(int j = 0; j < patternMatch.second.size(); j++){
+        for(size_t j = 0; j < patternMatch.second.size(); j++){
             std::cout << "    " << j+1 << std::endl;
 
-            for(int k = 0; k < patternMatch.second.at(j).size(); k++){
+            for(size_t k = 0; k < patternMatch.second.at(j).size(); k++){
                 std::cout << "        " << "First A: " << patternMatch.second.at(j).at(k).first << " Second A: " << patternMatch.second.at(j).at(k).second << std::endl;
             }
         }
@@ -282,53 +282,13 @@ void rotateX(RDGeom::Point3D* p, float theta) {
     p->z = zNew;
 }
 
-//TODO: bisogna fare una trasformazione spaziale e spostare tutto nel piano 2d x y ALL'INIZIO DELLA FUNZIONE 
-bool doSegmentsIntersect(RDGeom::Point3D &a1, RDGeom::Point3D &b1, RDGeom::Point3D &a2, RDGeom::Point3D &b2){ //checks if two COMPLANAR segments intersect
-    float m1, m2;
-    float q1, q2;
-    RDGeom::Point3D* intersection;
+RDGeom::Point3D calculateNormalVector(RDGeom::Point3D &pos_a, RDGeom::Point3D &pos_b, RDGeom::Point3D &pos_c){  // calculates the normal vector to the plane identified by the 3 points in input (assuming they are not in line)
+    RDGeom::Point3D vect_ab = pos_b - pos_a;
+    RDGeom::Point3D vect_ac = pos_c - pos_a;
 
-    a1 +- a1;  // |
-    a2 +- a1;  // | --> The two segments gets translated 
-    b1 +- a1;  // | --> so that a1 is the new origin
-    b2 +- a1;  // |
-
-    float thetaX = calculateRotationAngleX(b1); // | Calculate the rotation angles needed for the trasnformation that will
-    float thetaY = calculateRotationAngleY(b1); // | turn the plane in which the segments lay in the XY plane
-
-    rotateX(&b1, thetaX); // Apply the transformation to the point, a rotation around the X axis  
-    rotateY(&b1, thetaY); // Apply the transformation to the point, a rotation around the Y axis
-
-    rotateX(&a2, thetaX); // Apply the transformation to the point, a rotation around the X axis
-    rotateY(&a2, thetaY); // Apply the transformation to the point, a rotation around the Y axis
-
-    rotateX(&b2, thetaX); // Apply the transformation to the point, a rotation around the X axis
-    rotateY(&b2, thetaY); // Apply the transformation to the point, a rotation around the Y axis
-
-    if(a1.x == b1.x || a2.x == b2.x) // vertical line    |  TODO: Gestire questi casi per entrambi i segmenti
-    if(a1.y == b1.y || a2.x == b2.x) //orizzontal line   |
-
-    m1 = (b1.y - a1.y)/(b1.x - a1.x);
-    q1 = - (a1.x * (b1.y - a1.y)/(b1.x - a1.x));
-
-    m2 = (b2.y - a2.y)/(b2.x - a2.x);
-    q2 = - (a2.x * (b2.y - a2.y)/(b2.x - a2.x));
-
-    lineIntersection(m1, q1, m2, q2, intersection); // TODO: da sviluppare funzione che date due rette trova intersezione (se parallele restituisci altro, tipo null boh)
-
-    if(!intersection) return false;
-
-    float a, b, c;
-    a = calculateDistance(a1, *intersection);
-    b = calculateDistance(b1, *intersection);
-    c = calculateDistance(a1, b1);
-
-    float d, e, f;
-    d = calculateDistance(a2, *intersection);
-    e = calculateDistance(b2, *intersection);
-    f = calculateDistance(a2, b2);
-
-    if(((a < c) && (b < c)) && ((d < f) && (e < f))) return true;
+    RDGeom::Point3D normal = vect_ab.crossProduct(vect_ac);
+    normal.normalize();
+    return normal;
 }
 
 float calculateDistance(RDGeom::Point2D &pos_a, RDGeom::Point2D &pos_b){  //calculates euclidian distance between 2 points located in a 2D space
@@ -358,6 +318,7 @@ float calculateDistance(RDGeom::Point3D &p1, RDGeom::Point3D &p2, RDGeom::Point3
     return distance;
 }
 
+
 //Having three points located in a 3D space, imagine them forming a triangle: this function calculates the angle on the vertex pos_a 
 float calculateAngle(RDGeom::Point3D &pos_a, RDGeom::Point3D &pos_b, RDGeom::Point3D &pos_c){
     float ab = calculateDistance(pos_a, pos_b);
@@ -382,14 +343,7 @@ RDGeom::Point3D calculateCentroid(std::vector<RDGeom::Point3D>& pos_points_ring)
     return centroid;
 }
 
-RDGeom::Point3D calculateNormalVector(RDGeom::Point3D &pos_a, RDGeom::Point3D &pos_b, RDGeom::Point3D &pos_c){  // calculates the normal vector to the plane identified by the 3 points in input (assuming they are not in line)
-    RDGeom::Point3D vect_ab = pos_b - pos_a;
-    RDGeom::Point3D vect_ac = pos_c - pos_a;
 
-    RDGeom::Point3D normal = vect_ab.crossProduct(vect_ac);
-    normal.normalize();
-    return normal;
-}
 
 float calculateVectorAngle(RDGeom::Point3D &vect_a, RDGeom::Point3D &vect_b){ //calculates the angle in degrees between two vectors (the smallest angle of the incidents infinite lines that are formed extending the vectors)
     return std::acos(abs(dotProduct(vect_a, vect_b) / ((norm(vect_a)) * (norm(vect_b))) * 180 / M_PI));
@@ -578,95 +532,7 @@ void findIonicInteraction(const Molecule& molA, const Molecule& molB, const Foun
     }
 }
 
-//two planes facing each other: SANDWICH | two planes perpendicular: T-SHAPE
-void findPiStacking(const Molecule& molA, const Molecule& molB, const FoundPatterns& molA_patterns, const FoundPatterns& molB_patterns, const RDKit::Conformer& conformer_molA, const RDKit::Conformer& conformer_molB, const bool protA_ligB){
-    auto molA_pattern = molA_patterns.patternMatches.find(Pattern::Aromatic_ring);
-    auto molB_pattern = molB_patterns.patternMatches.find(Pattern::Aromatic_ring);
-    unsigned int id_pointA, id_pointB;
-    RDGeom::Point3D pos_pointA, pos_pointB;
-    float distRequired;
-    float distance;
 
-    if ((molA_pattern != molA_patterns.patternMatches.end()) && (molB_pattern != molB_patterns.patternMatches.end())){
-        float planesAngle;
-        float planesAngle_minSandwich = 0;
-        float planesAngle_maxSandwich = 30; //TODO: forse tutte queste dichiarazioni vanno spostate
-        float planesAngle_minTshape = 50;
-        float planesAngle_maxTshape = 90;
-
-        float normalCentroidAngle_A, normalCentroidAngle_B;
-        float normalCentroidAngle_min = 0;
-        float normalCentroidAngle_max;
-
-        RDGeom::Point3D centroidA, centroidB, normalA, normalB, centroidsVector;
-        std::vector<RDGeom::Point3D> pos_ringA, pos_ringB;
-
-        for (const auto& matchVect_molA : molA_pattern->second){ // for each aromatic ring found in molA
-            pos_ringA.clear();
-            for(const auto& pair_molA : matchVect_molA){ // creates the aromatic ring A as a vector of points
-                id_pointA = pair_molA.second; 
-                pos_pointA = conformer_molA.getAtomPos(id_pointA);
-                pos_ringA.push_back(pos_pointA);  
-            }
-            centroidA = calculateCentroid(pos_ringA);
-
-            for(const auto& matchVect_molB : molB_pattern->second){ // for each aromatic ring found in molB
-                pos_ringB.clear();
-                for(const auto& pair_molB : matchVect_molB){ // creates the aromatic ring B as a vector of points
-                    id_pointB = pair_molB.second;  
-                    pos_pointB = conformer_molB.getAtomPos(id_pointB);
-                    pos_ringB.push_back(pos_pointB);  
-                }
-                centroidB = calculateCentroid(pos_ringB); //TODO: controllare se conviene spostare il calcolo dei centroidi e della distanza dentro agli if
-
-                distance = calculateDistance(centroidA, centroidB); // gets the distance between the two centroids 
-
-                normalA = calculateNormalVector(pos_ringA.at(0), pos_ringA.at(2), pos_ringA.at(3)); // finds the normal vector of the plane of the aromatic ring A
-                normalB = calculateNormalVector(pos_ringB.at(0), pos_ringB.at(2), pos_ringB.at(3)); // finds the normal vector of the plane of the aromatic ring B
-
-                planesAngle = calculateVectorAngle(normalA, normalB); // finds the angle between the two aromatic rings
-
-                if(isAngleInRange(planesAngle, planesAngle_minSandwich, planesAngle_maxSandwich)){ // SANDWICH
-                    normalCentroidAngle_max = 33;
-                    distRequired = 5.5;
-
-                    centroidsVector = centroidB - centroidA; // calculates the vector that links the two centroids
-
-                    normalCentroidAngle_A = calculateVectorAngle(centroidsVector, normalA); //calculate the angle between the vector that links the two centroids and the normal of ring A
-                    normalCentroidAngle_B = calculateVectorAngle(centroidsVector, normalB); //calculate the angle between the vector that links the two centroids and the normal of ring B
-
-                    if(distance <= distRequired && isAngleInRange(normalCentroidAngle_A, normalCentroidAngle_min, normalCentroidAngle_max) && isAngleInRange(normalCentroidAngle_B, normalCentroidAngle_min, normalCentroidAngle_max)){
-                        //output(molA.name, molB.name, /*Protein Atom ID*/, "Aromatic_ring", centroidA.x, centroidA.y, centroidA.z, /*Ligand Atom ID*/, "Aromatic_ring", centroidB.x, centroidB.y, centroidB.z, "Pi Stacking", distance, protA_ligB);
-                    }
-                }
-                else if(isAngleInRange(planesAngle, planesAngle_minTshape, planesAngle_maxTshape)){ // T SHAPE
-                    normalCentroidAngle_max = 30;
-                    distRequired = 6.5;
-
-                    centroidsVector = centroidB - centroidA; //calculates the vector that links the two centroids
-
-                    normalCentroidAngle_A = calculateVectorAngle(centroidsVector, normalA); //calculate the angle between the vector that links the two centroids and the normal of ring A
-                    normalCentroidAngle_B = calculateVectorAngle(centroidsVector, normalB); //calculate the angle between the vector that links the two centroids and the normal of ring B
-
-                    //TODO: manca il check del quarto punto della docu
-
-                    
-                    RDGeom::Point3D P1 = centroidB + normalA * calculateDistance(pos_ringA.at(1), pos_ringA.at(2), pos_ringA.at(3), centroidB) * (isGreaterThenNinety(calculateActualVectorAngle(centroidsVector, normalA)) ? 1 : -1); //finds the point P1
-
-                    int count = 0;
-
-                    for(int k = 0; k < pos_ringA.size(); k++){ //checks if the segment P1-centroidA intersects with every segment of ringA
-                        if(doSegmentsIntersect(P1, centroidA, pos_ringA.at(k), pos_ringA.at((k+1)%pos_ringA.size()))) count ++; //counts the number of intersections
-                    }
-
-                    if(distance <= distRequired && isAngleInRange(normalCentroidAngle_A, normalCentroidAngle_min, normalCentroidAngle_max) && isAngleInRange(normalCentroidAngle_B, normalCentroidAngle_min, normalCentroidAngle_max) && count < 1){
-                        //output(molA.name, molB.name, /*Protein Atom ID*/, "Aromatic_ring", centroidA.x, centroidA.y, centroidA.z, /*Ligand Atom ID*/, "Aromatic_ring", centroidB.x, centroidB.y, centroidB.z, "Pi Stacking", distance, protA_ligB);
-                    }
-                }
-            }
-        }
-    }
-}
 
 void findMetalCoordination(const Molecule& molA, const Molecule& molB, const FoundPatterns& molA_patterns, const FoundPatterns& molB_patterns, const RDKit::Conformer& conformer_molA, const RDKit::Conformer& conformer_molB, const bool protA_ligB){
     auto tmpA = molA_patterns.patternMatches.find(Pattern::Metal);
@@ -714,8 +580,6 @@ void identifyInteractions(const Molecule& protein, const Molecule& ligand, const
     findIonicInteraction(protein, ligand, proteinPatterns, ligandPatterns, proteinConformer, ligandConformer, true);
     findIonicInteraction(ligand, protein, ligandPatterns, proteinPatterns, ligandConformer, proteinConformer, false);
 
-    findPiStacking(protein, ligand, proteinPatterns, ligandPatterns, proteinConformer, ligandConformer, true);
-
     findMetalCoordination(protein, ligand, proteinPatterns, ligandPatterns, proteinConformer, ligandConformer, true);
     findMetalCoordination(ligand, protein, ligandPatterns, proteinPatterns, ligandConformer, proteinConformer, false);
 }
@@ -725,7 +589,7 @@ void identifySubstructs(Molecule& molecule, FoundPatterns &foundPatterns){
     for(int i = 0; i < smartsPatternsCount; i++){
         std::vector<RDKit::MatchVectType> tmpMatchesVector;
         RDKit::ROMol* patternMol = RDKit::SmartsToMol(smartsPatterns[i].smartsString);
-        bool foundMatch = RDKit::SubstructMatch(molecule.mol, *patternMol, tmpMatchesVector);
+        bool foundMatch = RDKit::SubstructMatch(*(molecule.mol), *patternMol, tmpMatchesVector);
 
         if(foundMatch && !tmpMatchesVector.empty()){
             //the number of patterns and their index must be the same inside the Pattern Enum and smartsPatterns
