@@ -246,17 +246,17 @@ bool isVectorNull(RDGeom::Point3D &v) {
     return v.length() == 0;
 }
 
-void lineIntersection(float m1, float m2, float q1, float q2, RDGeom::Point3D* intersection){
-    float x, y;
+// void lineIntersection(float m1, float m2, float q1, float q2, RDGeom::Point3D* intersection){
+//     float x, y;
 
-    if(m1 == m2) intersection = nullptr;
+//     if(m1 == m2) intersection = nullptr;
 
-    x = (q2 - q2) / (m1 - m2);
-    y = m1*x + q1;
+//     x = (q2 - q2) / (m1 - m2);
+//     y = m1*x + q1;
 
-    intersection->x = x;
-    intersection->y = y;
-}
+//     intersection->x = x;
+//     intersection->y = y;
+// }
 
 float calculateRotationAngleY(RDGeom::Point3D& D) {
     return std::atan2(D.z, D.x);
@@ -589,6 +589,10 @@ void identifySubstructs(Molecule& molecule, FoundPatterns &foundPatterns){
     for(int i = 0; i < smartsPatternsCount; i++){
         std::vector<RDKit::MatchVectType> tmpMatchesVector;
         RDKit::ROMol* patternMol = RDKit::SmartsToMol(smartsPatterns[i].smartsString);
+        if (!patternMol) {
+            std::cerr << "Failed to convert SMARTS to molecule for pattern: " << smartsPatterns[i].smartsString << std::endl;
+            continue;  // Skip this iteration if the molecule could not be created.
+}
         bool foundMatch = RDKit::SubstructMatch(*(molecule.mol), *patternMol, tmpMatchesVector);
 
         if(foundMatch && !tmpMatchesVector.empty()){
