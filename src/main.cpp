@@ -282,53 +282,21 @@ void rotateX(RDGeom::Point3D* p, float theta) {
     p->z = zNew;
 }
 
-//TODO: bisogna fare una trasformazione spaziale e spostare tutto nel piano 2d x y ALL'INIZIO DELLA FUNZIONE 
+
 bool doSegmentsIntersect(RDGeom::Point3D &a1, RDGeom::Point3D &b1, RDGeom::Point3D &a2, RDGeom::Point3D &b2){ //checks if two COMPLANAR segments intersect
-    float m1, m2;
-    float q1, q2;
-    RDGeom::Point3D* intersection;
+    RDGeom::Point3D a1a2 = a1 - a2;
+    RDGeom::Point3D b1b2 = b1 - b2;
+    RDGeom::Point3D a1b1 = a1 - b1;
 
-    a1 +- a1;  // |
-    a2 +- a1;  // | --> The two segments gets translated 
-    b1 +- a1;  // | --> so that a1 is the new origin
-    b2 +- a1;  // |
+    double a =  a1a2.x, b = -b1b2.x, c = a1a2.y, d = -b1b2.y, e = a1a2.z, f = -b1b2.z; //fill the coeficients in the matrix rapresenting the equations
+    double det = a * d - b * c; //calculates the det of the matrix to check if there are solutions
 
-    float thetaX = calculateRotationAngleX(b1); // | Calculate the rotation angles needed for the trasnformation that will
-    float thetaY = calculateRotationAngleY(b1); // | turn the plane in which the segments lay in the XY plane
+    if(fabs(det) < 1e-10) return false; //checks if the det = 0 it means that there are no solutions the segments are or parallel or the same segment
 
-    rotateX(&b1, thetaX); // Apply the transformation to the point, a rotation around the X axis  
-    rotateY(&b1, thetaY); // Apply the transformation to the point, a rotation around the Y axis
+    double t = (d * a1b1.x -b * a1b1.y) / det; //solves the parametric equation using Cramer's rule
+    double s = (-c * a1b1.x + a * a1b1.y) / det;
 
-    rotateX(&a2, thetaX); // Apply the transformation to the point, a rotation around the X axis
-    rotateY(&a2, thetaY); // Apply the transformation to the point, a rotation around the Y axis
-
-    rotateX(&b2, thetaX); // Apply the transformation to the point, a rotation around the X axis
-    rotateY(&b2, thetaY); // Apply the transformation to the point, a rotation around the Y axis
-
-    if(a1.x == b1.x || a2.x == b2.x) // vertical line    |  TODO: Gestire questi casi per entrambi i segmenti
-    if(a1.y == b1.y || a2.x == b2.x) //orizzontal line   |
-
-    m1 = (b1.y - a1.y)/(b1.x - a1.x);
-    q1 = - (a1.x * (b1.y - a1.y)/(b1.x - a1.x));
-
-    m2 = (b2.y - a2.y)/(b2.x - a2.x);
-    q2 = - (a2.x * (b2.y - a2.y)/(b2.x - a2.x));
-
-    lineIntersection(m1, q1, m2, q2, intersection); // TODO: da sviluppare funzione che date due rette trova intersezione (se parallele restituisci altro, tipo null boh)
-
-    if(!intersection) return false;
-
-    float a, b, c;
-    a = calculateDistance(a1, *intersection);
-    b = calculateDistance(b1, *intersection);
-    c = calculateDistance(a1, b1);
-
-    float d, e, f;
-    d = calculateDistance(a2, *intersection);
-    e = calculateDistance(b2, *intersection);
-    f = calculateDistance(a2, b2);
-
-    if(((a < c) && (b < c)) && ((d < f) && (e < f))) return true;
+    return (t >= 0 && t<= 1 && s >= 0 && s <= 1); //checks that the intersection point is within both segments
 }
 
 float calculateDistance(RDGeom::Point2D &pos_a, RDGeom::Point2D &pos_b){  //calculates euclidian distance between 2 points located in a 2D space
