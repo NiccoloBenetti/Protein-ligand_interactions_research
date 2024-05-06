@@ -294,8 +294,16 @@ float calculateDistance(RDGeom::Point2D &pos_a, RDGeom::Point2D &pos_b){  //calc
     return (pos_a - pos_b).length();
 }
 
-float calculateDistance(RDGeom::Point3D &pos_a, RDGeom::Point3D &pos_b){  //calculates euclidian distance between 2 points located in a 3D space
-    return (pos_a - pos_b).length();
+// float calculateDistance(RDGeom::Point3D &pos_a, RDGeom::Point3D &pos_b){  //calculates euclidian distance between 2 points located in a 3D space
+//     return (pos_a - pos_b).length();
+// }
+
+float calculateDistance(const RDGeom::Point3D &pos_a, const RDGeom::Point3D &pos_b){
+    float x_diff = pos_a.x - pos_b.x; 
+    float y_diff = pos_a.y - pos_b.y; 
+    float z_diff = pos_a.z - pos_b.z;  
+
+    return std::sqrt(x_diff * x_diff + y_diff * y_diff + z_diff * z_diff);
 }
 
 float calculateDistance(RDGeom::Point3D &p1, RDGeom::Point3D &p2, RDGeom::Point3D &p3, RDGeom::Point3D &point) { //calculates euclidian distance between the plane formed by the first three points and the fourth point in a 3D space
@@ -318,13 +326,13 @@ float calculateDistance(RDGeom::Point3D &p1, RDGeom::Point3D &p2, RDGeom::Point3
 }
 
 
-//Having three points located in a 3D space, imagine them forming a triangle: this function calculates the angle on the vertex pos_a 
+//Having three points located in a 3D space, imagine them forming a triangle: this function calculates the angle in degreeson of the vertex pos_a 
 float calculateAngle(RDGeom::Point3D &pos_a, RDGeom::Point3D &pos_b, RDGeom::Point3D &pos_c){
     float ab = calculateDistance(pos_a, pos_b);
     float bc = calculateDistance(pos_b, pos_c);
     float ac = calculateDistance(pos_a, pos_c);
 
-    return sin((pow(ab, 2) + pow(ac, 2) - pow(bc, 2)) / (2*ab*ac));
+    return (acos((pow(ab, 2) + pow(ac, 2) - pow(bc, 2)) / (2 * ab * ac))) * (180.0 / M_PI);
 }
 
 bool isAngleInRange(float angle, float minAngle, float maxAngle){
@@ -574,19 +582,19 @@ void identifyInteractions(const Molecule& protein, const Molecule& ligand, const
     //every function will need to serch all the interactions of that type and for every one found call the output function that adds them to the CSV file
     //considering some interactions can be formed both ways (cation-anion ; anion-cation) we call the find function two times  
     
-    findHydrophobicInteraction(protein, ligand, proteinPatterns, ligandPatterns, proteinConformer, ligandConformer, true);
+    // findHydrophobicInteraction(protein, ligand, proteinPatterns, ligandPatterns, proteinConformer, ligandConformer, true);
 
-    findHydrogenBond(protein, ligand, proteinPatterns, ligandPatterns, proteinConformer, ligandConformer, true);
-    findHydrogenBond(ligand, protein, ligandPatterns, proteinPatterns, ligandConformer, proteinConformer, false);
+    // findHydrogenBond(protein, ligand, proteinPatterns, ligandPatterns, proteinConformer, ligandConformer, true);
+    // findHydrogenBond(ligand, protein, ligandPatterns, proteinPatterns, ligandConformer, proteinConformer, false);
 
     findHalogenBond(protein, ligand, proteinPatterns, ligandPatterns, proteinConformer, ligandConformer, true);
     findHalogenBond(ligand, protein, ligandPatterns, proteinPatterns, ligandConformer, proteinConformer, false);
 
-    findIonicInteraction(protein, ligand, proteinPatterns, ligandPatterns, proteinConformer, ligandConformer, true);
-    findIonicInteraction(ligand, protein, ligandPatterns, proteinPatterns, ligandConformer, proteinConformer, false);
+    // findIonicInteraction(protein, ligand, proteinPatterns, ligandPatterns, proteinConformer, ligandConformer, true);
+    // findIonicInteraction(ligand, protein, ligandPatterns, proteinPatterns, ligandConformer, proteinConformer, false);
 
-    findMetalCoordination(protein, ligand, proteinPatterns, ligandPatterns, proteinConformer, ligandConformer, true);
-    findMetalCoordination(ligand, protein, ligandPatterns, proteinPatterns, ligandConformer, proteinConformer, false);
+    // findMetalCoordination(protein, ligand, proteinPatterns, ligandPatterns, proteinConformer, ligandConformer, true);
+    // findMetalCoordination(ligand, protein, ligandPatterns, proteinPatterns, ligandConformer, proteinConformer, false);
 }
 
 // for eatch pattern of the Pattern enum looks if it is in the mol and saves all the matches in the MatchVectType field of the map inside FoundPatterns.
@@ -695,13 +703,13 @@ int main(int argc, char *argv[]) {  // First argument: PDB file, then a non fixe
     input(argv, argc, molVector);
 
     identifySubstructs(molVector.at(0), proteinPatterns); // Identifies all the istances of patterns inside the protein
-    printFoundPatterns(proteinPatterns);
+    // printFoundPatterns(proteinPatterns);
     
     const RDKit::Conformer& proteinConformer = molVector.at(0).mol->getConformer(); //Conformer is a class that represents the 2D or 3D conformation of a molecule
 
     for(int i = 1; i < argc - 1; i++){ // For every ligand
         identifySubstructs(molVector.at(i), ligandPatterns); // Identifies all the istances of patterns inside the ligand
-        printFoundPatterns(ligandPatterns);
+        // printFoundPatterns(ligandPatterns);
         
         const RDKit::Conformer& ligandConformer = molVector.at(i).mol->getConformer();  
         
