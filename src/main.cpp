@@ -41,7 +41,7 @@ void initializeFile(const char* fileName) {
     outputFile.open(fileName, std::ios::out);
     if (outputFile.is_open()) {
         outputFile << "LIGAND_NAME,PROTEIN_ATOM_ID,PROTEIN_PATTERN,PROTEIN_X,PROTEIN_Y,PROTEIN_Z,LIGAND_ATOM_ID,LIGAND_PATTERN,LIGAND_X,LIGAND_Y,LIGAND_Z,INTERACTION_TYPE,INTERACTION_DISTANCE" << std::endl;
-        std::cout << "File " << fileName << " successfully created." << std::endl;
+        //std::cout << "File " << fileName << " successfully created." << std::endl;
     } else {
         std::cerr << "Error while creating CSV file." << std::endl;
     }
@@ -158,22 +158,20 @@ void printFoundPatterns(FoundPatterns foundPatterns){
         std::cout << " ------ " << PatternToString(patternMatch.first) << " ------ " << std::endl;
 
         for(size_t j = 0; j < patternMatch.second.size(); j++){
-            std::cout << "    " << j+1 << std::endl;
+           std::cout << "    " << j+1 << std::endl;
 
-            for(size_t k = 0; k < patternMatch.second.at(j).size(); k++){
-                std::cout << "        " << "First A: " << patternMatch.second.at(j).at(k).first << " Second A: " << patternMatch.second.at(j).at(k).second << std::endl;
-            }
+           for(size_t k = 0; k < patternMatch.second.at(j).size(); k++){
+               std::cout << "        " << "First A: " << patternMatch.second.at(j).at(k).first << " Second A: " << patternMatch.second.at(j).at(k).second << std::endl;
+           }
         }
 
-        std::cout << std::endl;
+        //std::cout << std::endl;
         std::cout << std::endl;
     }
 }
 
 void printMolOverview(RDKit::ROMol mol, bool smiles) {
-    // Numero di atomi
-    std::cout << "Numero di atomi: " << mol.getNumAtoms() << std::endl;
-
+    // Numero di atomi std::cout << "Numero di atomi: " << mol.getNumAtoms() << std::endl;
     // Numero di legami
     std::cout << "Numero di legami: " << mol.getNumBonds() << std::endl;
 
@@ -384,6 +382,7 @@ void findHydrophobicInteraction(const Molecule& molA, const Molecule& molB, cons
 
                 if (distance <= distRequired){
                     getProtLigAtomID(molA, molB, indx_molA, indx_molB, atom_id_molA, atom_id_molB, protA_ligB);
+                    std::cout << "Hydrophobic\n";
                     output(molA.name, molB.name, atom_id_molA, "Hydrophobic", pos_a.x, pos_a.y, pos_a.z, atom_id_molB, "Hydrophobic", pos_b.x, pos_b.y, pos_b.z, "Hydrophobic", distance, protA_ligB);
                 }
             }
@@ -420,6 +419,7 @@ void findHydrogenBond(const Molecule& molA, const Molecule& molB, const FoundPat
 
                 if(distance <= distance_required && isAngleInRange(angle, minAngle_required, maxAngle_required)){
                     getProtLigAtomID(molA, molB, id_hydrogen, id_acceptor, atom_id_molA, atom_id_molB, protA_ligB);
+                    std::cout << "Hydrogen bond\n";
                     output(molA.name, molB.name, atom_id_molA, "Hydrogen donor", pos_hydrogen.x, pos_hydrogen.y, pos_hydrogen.z, atom_id_molB, "Hydrogen acceptor", pos_acceptor.x, pos_acceptor.y, pos_acceptor.z, "Hydrogen Bond", distance, protA_ligB);
                 }
             }
@@ -462,6 +462,7 @@ void findHalogenBond(const Molecule& molA, const Molecule& molB, const FoundPatt
 
                 if(distance <= distance_required && isAngleInRange(firstAngle, minAngle_required_first, maxAngle_required_first) && isAngleInRange(secondAngle, minAngle_required_second, maxAngle_required_second)){
                     getProtLigAtomID(molA, molB, id_halogen, id_acceptor, atom_id_molA, atom_id_molB, protA_ligB);
+                    std::cout << "Halogen bond\n";
                     output(molA.name, molB.name, atom_id_molA, "Halogen donor", pos_halogen.x, pos_halogen.y, pos_halogen.z, atom_id_molB, "Halogen acceptor", pos_acceptor.x, pos_acceptor.y, pos_acceptor.z, "Halogen Bond", distance, protA_ligB);
                 }
         
@@ -492,6 +493,7 @@ void findIonicInteraction(const Molecule& molA, const Molecule& molB, const Foun
 
                 if (distance <= distRequired){
                     getProtLigAtomID(molA, molB, indx_molA, indx_molB, atom_id_molA, atom_id_molB, protA_ligB);
+                    std::cout << "Ionic\n";
                     output(molA.name, molB.name, atom_id_molA, "Cation", pos_a.x, pos_a.y, pos_a.z, atom_id_molB, "Anion", pos_b.x, pos_b.y, pos_b.z, "Ionic", distance, protA_ligB);
                 }
             }
@@ -525,6 +527,7 @@ void findIonicInteraction(const Molecule& molA, const Molecule& molB, const Foun
                     angle = calculateAngle(centroid, pos_c, pos_a); // calculates the angle that must be <30 for the Ionic bond requirements
                     if((!isAngleInRange(angle, minAngle_required, maxAngle_required)) || angle == 30 || angle == 150){  //pos_c and pos_a can be on different sides of the aromatic ring plane
                         getProtLigAtomID(molA, molB, indx_molA, indx_molB, atom_id_molA, atom_id_molB, protA_ligB);
+                        std::cout << "Ionic\n";
                         output(molA.name, molB.name, atom_id_molA, "Cation", pos_a.x, pos_a.y, pos_a.z, atom_id_molB, "Aromatic_ring", centroid.x, centroid.y, centroid.z, "Ionic", distance, protA_ligB);  // For aromatic ring the name of the last atom in the vector conteining pair <atom of the pattern, atom of the molecule> and the position of the centroid are printed.
                     }
                 }
@@ -540,11 +543,11 @@ void findMetalCoordination(const Molecule& molA, const Molecule& molB, const Fou
     auto tmpB = molB_patterns.patternMatches.find(Pattern::Chelated);
 
     if ((tmpA != molA_patterns.patternMatches.end()) && (tmpB != molB_patterns.patternMatches.end())){
-        unsigned int indx_molA;
-        unsigned int indx_molB;
-        RDGeom::Point3D pos_a, pos_b;    
+        RDGeom::Point3D pos_a, pos_b; 
         float distRequired = 2.8;
         float distance;
+        unsigned int indx_molA;
+        unsigned int indx_molB;
         std::string atom_id_molA, atom_id_molB;
 
         for (const auto& matchVectA : tmpA->second){
@@ -557,6 +560,7 @@ void findMetalCoordination(const Molecule& molA, const Molecule& molB, const Fou
 
                 if (distance <= distRequired){
                     getProtLigAtomID(molA, molB, indx_molA, indx_molB, atom_id_molA, atom_id_molB, protA_ligB);
+                    std::cout << "Metal\n";
                     output(molA.name, molB.name, atom_id_molA, "Metal", pos_a.x, pos_a.y, pos_a.z, atom_id_molB, "Chelated", pos_b.x, pos_b.y, pos_b.z, "Metal", distance, protA_ligB);
                 }
             }
@@ -587,24 +591,27 @@ void identifyInteractions(const Molecule& protein, const Molecule& ligand, const
 
 // for eatch pattern of the Pattern enum looks if it is in the mol and saves all the matches in the MatchVectType field of the map inside FoundPatterns.
 void identifySubstructs(Molecule& molecule, FoundPatterns &foundPatterns){
-    for(int i = 0; i < smartsPatternsCount; i++){
+    for(auto smartsPattern : smartsPatterns){
         std::vector<RDKit::MatchVectType> tmpMatchesVector;
-        RDKit::ROMol* patternMol = RDKit::SmartsToMol(smartsPatterns[i].smartsString);
+        RDKit::ROMol* patternMol = RDKit::SmartsToMol(smartsPattern.smartsString);
         if (!patternMol) {
-            std::cerr << "Failed to convert SMARTS to molecule for pattern: " << smartsPatterns[i].smartsString << std::endl;
+            std::cerr << "Failed to convert SMARTS to molecule for pattern: " << smartsPattern.smartsString << std::endl;
             continue;  // Skip this iteration if the molecule could not be created.
 }
         bool foundMatch = RDKit::SubstructMatch(*(molecule.mol), *patternMol, tmpMatchesVector);
 
         if(foundMatch && !tmpMatchesVector.empty()){
             //the number of patterns and their index must be the same inside the Pattern Enum and smartsPatterns
-            foundPatterns.patternMatches[static_cast<Pattern>(i)] = tmpMatchesVector;
+            if(smartsPattern.pattern == Pattern::Aromatic_ring && foundPatterns.patternMatches.find(Pattern::Aromatic_ring) != foundPatterns.patternMatches.end()){ //if others aromatic rings where already found
+                foundPatterns.patternMatches[Pattern::Aromatic_ring].insert(foundPatterns.patternMatches[Pattern::Aromatic_ring].end(), tmpMatchesVector.begin(), tmpMatchesVector.end()); //append tmpMatchesVector to the end of the already found aromatic rings
+            }
+            // else foundPatterns.patternMatches[static_cast<Pattern>(i)] = tmpMatchesVector;
+            else foundPatterns.patternMatches[smartsPattern.pattern] = tmpMatchesVector;
         }
         delete patternMol;
         //TODO: maybe its a good idea to also clean the tmpMatchesVector
     }
 }
-
 
 // ------------------------------------------------------- MAIN and INPUT ----------------------------------------------------------------------------------------
 
@@ -650,7 +657,7 @@ void input(char **argv, int argc, std::vector<Molecule> &molVector) {
                 molVector.emplace_back(removeFileExtension(argv[i]), mol.release());
             }
 
-            printMolOverview(*(molVector.back().mol), false);
+            //printMolOverview(*(molVector.back().mol), false);
 
             free(fileContent);
         }
@@ -688,12 +695,13 @@ int main(int argc, char *argv[]) {  // First argument: PDB file, then a non fixe
     input(argv, argc, molVector);
 
     identifySubstructs(molVector.at(0), proteinPatterns); // Identifies all the istances of patterns inside the protein
-    //printFoundPatterns(proteinPatterns);
+    printFoundPatterns(proteinPatterns);
     
     const RDKit::Conformer& proteinConformer = molVector.at(0).mol->getConformer(); //Conformer is a class that represents the 2D or 3D conformation of a molecule
 
     for(int i = 1; i < argc - 1; i++){ // For every ligand
         identifySubstructs(molVector.at(i), ligandPatterns); // Identifies all the istances of patterns inside the ligand
+        printFoundPatterns(ligandPatterns);
         
         const RDKit::Conformer& ligandConformer = molVector.at(i).mol->getConformer();  
         
