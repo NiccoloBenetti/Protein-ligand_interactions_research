@@ -368,9 +368,12 @@ RDGeom::Point3D calculateCentroid(std::vector<RDGeom::Point3D>& pos_points_ring)
 }
 
 
-
-float calculateVectorAngle(RDGeom::Point3D &vect_a, RDGeom::Point3D &vect_b){ //calculates the angle in degrees between two vectors (the smallest angle of the incidents infinite lines that are formed extending the vectors)
-    return std::acos(abs(dotProduct(vect_a, vect_b) / ((norm(vect_a)) * (norm(vect_b))) * 180 / M_PI));
+//calculates the angle in degrees between two vectors (the smallest angle of the incidents infinite lines that are formed extending the vectors)
+float calculateVectorAngle(RDGeom::Point3D &vect_a, RDGeom::Point3D &vect_b){
+    float dot = dotProduct(vect_a, vect_b);
+    float norms = norm(vect_a) * norm(vect_b);
+    float angle = std::acos(abs(dot / norms));
+    return angle * 180 / M_PI; 
 }
 
 //TODO: questa si dovrà chiamare caluclateVectorAngle e per l'altra si trova un altro nome
@@ -561,7 +564,97 @@ void findIonicInteraction(const Molecule& molA, const Molecule& molB, const Foun
     }
 }
 
+//two planes facing each other: SANDWICH | two planes perpendicular: T-SHAPE
+void findPiStacking(const Molecule& molA, const Molecule& molB, const FoundPatterns& molA_patterns, const FoundPatterns& molB_patterns, const RDKit::Conformer& conformer_molA, const RDKit::Conformer& conformer_molB, const bool protA_ligB){
+    auto molA_pattern = molA_patterns.patternMatches.find(Pattern::Aromatic_ring);
+    auto molB_pattern = molB_patterns.patternMatches.find(Pattern::Aromatic_ring);
+    unsigned int id_pointA, id_pointB;
+    RDGeom::Point3D pos_pointA, pos_pointB;
+    float distRequired;
+    float distance;
 
+    if ((molA_pattern != molA_patterns.patternMatches.end()) && (molB_pattern != molB_patterns.patternMatches.end())){
+        float planesAngle;
+        float planesAngle_minSandwich = 0;
+        float planesAngle_maxSandwich = 30; //TODO: forse tutte queste dichiarazioni vanno spostate
+        float planesAngle_minTshape = 50;
+        float planesAngle_maxTshape = 90;
+
+        float normalCentroidAngle_A, normalCentroidAngle_B;
+        float normalCentroidAngle_min = 0;
+        float normalCentroidAngle_max;
+
+        RDGeom::Point3D centroidA, centroidB, normalA, normalB, centroidsVector;
+        std::vector<RDGeom::Point3D> pos_ringA, pos_ringB;
+
+        for (const auto& matchVect_molA : molA_pattern->second){ // for each aromatic ring found in molA
+            pos_ringA.clear();
+            for(const auto& pair_molA : matchVect_molA){ // creates the aromatic ring A as a vector of points
+                id_pointA = pair_molA.second; 
+                pos_pointA = conformer_molA.getAtomPos(id_pointA);
+                pos_ringA.push_back(pos_pointA);  
+            }
+            centroidA = calculateCentroid(pos_ringA);
+
+            for(const auto& matchVect_molB : molB_pattern->second){ // for each aromatic ring found in molB
+                pos_ringB.clear();
+                for(const auto& pair_molB : matchVect_molB){ // creates the aromatic ring B as a vector of points
+                    id_pointB = pair_molB.second;  
+                    pos_pointB = conformer_molB.getAtomPos(id_pointB);
+                    pos_ringB.push_back(pos_pointB);  
+                }
+                centroidB = calculateCentroid(pos_ringB); //TODO: controllare se conviene spostare il calcolo dei centroidi e della distanza dentro agli if
+
+                distance = calculateDistance(centroidA, centroidB); // gets the distance between the two centroids 
+
+                normalA = calculateNormalVector(pos_ringA.at(0), pos_ringA.at(2), pos_ringA.at(3)); // finds the normal vector of the plane of the aromatic ring A
+                normalB = calculateNormalVector(pos_ringB.at(0), pos_ringB.at(2), pos_ringB.at(3)); // finds the normal vector of the plane of the aromatic ring B
+
+                planesAngle = calculateVectorAngle(normalA, normalB); // finds the angle between the two aromatic rings
+
+                if(isAngleInRange(planesAngle, planesAngle_minSandwich, planesAngle_maxSandwich)){ // SANDWICH
+                    normalCentroidAngle_max = 33;
+                    distRequired = 5.5;
+
+                    centroidsVector = centroidB - centroidA; // calculates the vector that links the two centroids
+
+                    normalCentroidAngle_A = calculateVectorAngle(centroidsVector, normalA); //calculate the angle between the vector that links the two centroids and the normal of ring A
+                    normalCentroidAngle_B = calculateVectorAngle(centroidsVector, normalB); //calculate the angle between the vector that links the two centroids and the normal of ring B
+
+                    if(distance <= distRequired && isAngleInRange(normalCentroidAngle_A, normalCentroidAngle_min, normalCentroidAngle_max) && isAngleInRange(normalCentroidAngle_B, normalCentroidAngle_min, normalCentroidAngle_max)){
+                        std::cout << "Pi Stacking - SANDWICH \n";
+                        //output(molA.name, molB.name, /*Protein Atom ID*/, "Aromatic_ring", centroidA.x, centroidA.y, centroidA.z, /*Ligand Atom ID*/, "Aromatic_ring", centroidB.x, centroidB.y, centroidB.z, "Pi Stacking", distance, protA_ligB);
+                    }
+                }
+                else if(isAngleInRange(planesAngle, planesAngle_minTshape, planesAngle_maxTshape)){ // T SHAPE
+                    normalCentroidAngle_max = 30;
+                    distRequired = 6.5;
+
+                    centroidsVector = centroidB - centroidA; //calculates the vector that links the two centroids
+
+                    normalCentroidAngle_A = calculateVectorAngle(centroidsVector, normalA); //calculate the angle between the vector that links the two centroids and the normal of ring A
+                    normalCentroidAngle_B = calculateVectorAngle(centroidsVector, normalB); //calculate the angle between the vector that links the two centroids and the normal of ring B
+
+                    //TODO: manca il check del quarto punto della docu
+
+                    
+                    RDGeom::Point3D P1 = centroidB + normalA * calculateDistance(pos_ringA.at(1), pos_ringA.at(2), pos_ringA.at(3), centroidB) * (isGreaterThenNinety(calculateActualVectorAngle(centroidsVector, normalA)) ? 1 : -1); //finds the point P1
+
+                    int count = 0;
+
+                    for(int k = 0; k < pos_ringA.size(); k++){ //checks if the segment P1-centroidA intersects with every segment of ringA
+                        if(doSegmentsIntersect(P1, centroidA, pos_ringA.at(k), pos_ringA.at((k+1)%pos_ringA.size()))) count ++; //counts the number of intersections
+                    }
+
+                    if(distance <= distRequired && isAngleInRange(normalCentroidAngle_A, normalCentroidAngle_min, normalCentroidAngle_max) && isAngleInRange(normalCentroidAngle_B, normalCentroidAngle_min, normalCentroidAngle_max) && count < 1){
+                        std::cout << "Pi Stacking - T-SHAPE \n";
+                        //output(molA.name, molB.name, /*Protein Atom ID*/, "Aromatic_ring", centroidA.x, centroidA.y, centroidA.z, /*Ligand Atom ID*/, "Aromatic_ring", centroidB.x, centroidB.y, centroidB.z, "Pi Stacking", distance, protA_ligB);
+                    }
+                }
+            }
+        }
+    }
+}
 
 void findMetalCoordination(const Molecule& molA, const Molecule& molB, const FoundPatterns& molA_patterns, const FoundPatterns& molB_patterns, const RDKit::Conformer& conformer_molA, const RDKit::Conformer& conformer_molB, const bool protA_ligB){
     auto tmpA = molA_patterns.patternMatches.find(Pattern::Metal);
@@ -604,11 +697,13 @@ void identifyInteractions(const Molecule& protein, const Molecule& ligand, const
     // findHydrogenBond(protein, ligand, proteinPatterns, ligandPatterns, proteinConformer, ligandConformer, true);
     // findHydrogenBond(ligand, protein, ligandPatterns, proteinPatterns, ligandConformer, proteinConformer, false);
 
-    findHalogenBond(protein, ligand, proteinPatterns, ligandPatterns, proteinConformer, ligandConformer, true);
-    findHalogenBond(ligand, protein, ligandPatterns, proteinPatterns, ligandConformer, proteinConformer, false);
+    // findHalogenBond(protein, ligand, proteinPatterns, ligandPatterns, proteinConformer, ligandConformer, true);
+    // findHalogenBond(ligand, protein, ligandPatterns, proteinPatterns, ligandConformer, proteinConformer, false);
 
     // findIonicInteraction(protein, ligand, proteinPatterns, ligandPatterns, proteinConformer, ligandConformer, true);
     // findIonicInteraction(ligand, protein, ligandPatterns, proteinPatterns, ligandConformer, proteinConformer, false);
+
+    findPiStacking(protein, ligand, proteinPatterns, ligandPatterns, proteinConformer, ligandConformer, true);
 
     // findMetalCoordination(protein, ligand, proteinPatterns, ligandPatterns, proteinConformer, ligandConformer, true);
     // findMetalCoordination(ligand, protein, ligandPatterns, proteinPatterns, ligandConformer, proteinConformer, false);
