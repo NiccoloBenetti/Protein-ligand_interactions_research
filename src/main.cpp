@@ -20,6 +20,40 @@
 #include <GraphMol/Descriptors/MolDescriptors.h>
 #include <GraphMol/Substruct/SubstructMatch.h>
 
+// HYDROPHOBIC 
+#define DISTANCE_HYDROPHOBIC 4.5;
+
+// HYDROGEN BOND
+#define DISTANCE_HYDROGENBOND 3.5;
+#define MIN_ANGLE_HYDROGENBOND 130;
+#define MAX_ANGLE_HYDROGENBOND 180;
+
+// HALOGEN BOND
+#define DISTANCE_HALOGENBOND 3.5;
+#define MIN_ANGLE1_HALOGENBOND 130;
+#define MAX_ANGLE1_HALOGENBOND 180;
+#define MIN_ANGLE2_HALOGENBOND 80;
+#define MAX_ANGLE2_HALOGENBOND 140;
+
+// IONIC
+#define DISTANCE_IONIC 4.5;
+#define MIN_ANGLE_IONIC 30;
+#define MAX_ANGLE_IONIC 150;
+
+// PI STACKING - SANDWICH
+#define DISTANCE_SANDWICH 5.5;
+#define MIN_PLANES_ANGLE_SANDWICH 0;
+#define MAX_PLANES_ANGLE_SANDWICH 30;
+#define MIN_NORMAL_CENTROID_ANGLE_SANDWICH 0;
+#define MAX_NORMAL_CENTROID_ANGLE_SANDWICH 33;
+
+// PI STACKING - T SHAPE
+#define DISTANCE_TSHAPE 6.5;
+#define MIN_PLANES_ANGLE_TSHAPE 50;
+#define MAX_PLANES_ANGLE_TSHAPE 90;
+#define MIN_NORMAL_CENTROID_ANGLE_TSHAPE 0;
+#define MAX_NORMAL_CENTROID_ANGLE_TSHAPE 30;
+
 enum class Pattern {
     Hydrophobic,
     Hydrogen_donor_H,
@@ -34,7 +68,6 @@ enum class Pattern {
 };
 
 // --------------------------------------------------- OUTPUT'S FILE MANAGEMENT ------------------------------------------------------
-
 std::ofstream outputFile;
 
 void initializeFile(const char* fileName) {
@@ -394,7 +427,6 @@ void findHydrophobicInteraction(const Molecule& molA, const Molecule& molB, cons
     //Check that there is at list one Hydrophobic pattern found on both protein and ligand if yes serches and prints the bonds
     if ((tmpA != molA_patterns.patternMatches.end()) && (tmpB != molB_patterns.patternMatches.end())){
         RDGeom::Point3D pos_a, pos_b;    //are needed to easly manage x,y,z cordinates that will be feeded to the output funcion
-        float distRequired = 4.5;
         float distance;
         unsigned int indx_molA;     //will contain the atom index for molA in order to calculate distances
         unsigned int indx_molB;
@@ -408,7 +440,7 @@ void findHydrophobicInteraction(const Molecule& molA, const Molecule& molB, cons
                 pos_b = conformer_molB.getAtomPos(indx_molB);
                 distance = calculateDistance(pos_a, pos_b);
 
-                if (distance <= distRequired){
+                if (distance <= DISTANCE_HYDROPHOBIC){
                     getProtLigAtomID(molA, molB, indx_molA, indx_molB, atom_id_molA, atom_id_molB, protA_ligB);
                     std::cout << "Hydrophobic\n";
                     output(molA.name, molB.name, atom_id_molA, "Hydrophobic", pos_a.x, pos_a.y, pos_a.z, atom_id_molB, "Hydrophobic", pos_b.x, pos_b.y, pos_b.z, "Hydrophobic", distance, protA_ligB);
@@ -422,12 +454,7 @@ void findHydrogenBond(const Molecule& molA, const Molecule& molB, const FoundPat
     auto molA_pattern = molA_patterns.patternMatches.find(Pattern::Hydrogen_donor_H);
     auto molB_pattern = molB_patterns.patternMatches.find(Pattern::Hydrogen_acceptor);
     float distance;
-    float distance_required = 3.5;
-    float minAngle_required = 130;
-    float maxAngle_required = 180;
-
-    if ((molA_pattern != molA_patterns.patternMatches.end()) && (molB_pattern != molB_patterns.patternMatches.end())){ // if there are the researched patterns in both the molucles  
-
+if ((molA_pattern != molA_patterns.patternMatches.end()) && (molB_pattern != molB_patterns.patternMatches.end())){ // if there are the researched patterns in both the molucles  
         std::string atom_id_molA, atom_id_molB;
         RDGeom::Point3D pos_donor, pos_hydrogen, pos_acceptor; 
 
@@ -445,7 +472,7 @@ void findHydrogenBond(const Molecule& molA, const Molecule& molB, const FoundPat
                 distance = calculateDistance(pos_donor, pos_acceptor); //finds the distance between donor and acceptor
                 float angle = calculateAngle(pos_hydrogen, pos_donor, pos_acceptor); //finds the angle between the donor-hydrogen atoms and the hydrogen-acceptor atoms
 
-                if(distance <= distance_required && isAngleInRange(angle, minAngle_required, maxAngle_required)){
+                if(distance <= DISTANCE_HYDROGENBOND && isAngleInRange(angle, MIN_ANGLE_HYDROGENBOND, MAX_ANGLE_HYDROGENBOND)){
                     getProtLigAtomID(molA, molB, id_hydrogen, id_acceptor, atom_id_molA, atom_id_molB, protA_ligB);
                     std::cout << "Hydrogen bond\n";
                     output(molA.name, molB.name, atom_id_molA, "Hydrogen donor", pos_hydrogen.x, pos_hydrogen.y, pos_hydrogen.z, atom_id_molB, "Hydrogen acceptor", pos_acceptor.x, pos_acceptor.y, pos_acceptor.z, "Hydrogen Bond", distance, protA_ligB);
@@ -488,7 +515,7 @@ void findHalogenBond(const Molecule& molA, const Molecule& molB, const FoundPatt
                 float firstAngle = calculateAngle(pos_halogen, pos_donor, pos_acceptor); //finds the angle between the donor-halogen atoms and the halogen-acceptor atoms
                 float secondAngle = calculateAngle(pos_acceptor, pos_halogen, pos_any); //the angle between the halogen-acceptor atoms and the acceptor-any atoms
 
-                if(distance <= distance_required && isAngleInRange(firstAngle, minAngle_required_first, maxAngle_required_first) && isAngleInRange(secondAngle, minAngle_required_second, maxAngle_required_second)){
+                if(distance <= DISTANCE_HALOGENBOND && isAngleInRange(firstAngle, MIN_ANGLE1_HALOGENBOND, MAX_ANGLE1_HALOGENBOND) && isAngleInRange(secondAngle, MIN_ANGLE2_HALOGENBOND, MAX_ANGLE2_HALOGENBOND)){
                     getProtLigAtomID(molA, molB, id_halogen, id_acceptor, atom_id_molA, atom_id_molB, protA_ligB);
                     std::cout << "Halogen bond\n";
                     output(molA.name, molB.name, atom_id_molA, "Halogen donor", pos_halogen.x, pos_halogen.y, pos_halogen.z, atom_id_molB, "Halogen acceptor", pos_acceptor.x, pos_acceptor.y, pos_acceptor.z, "Halogen Bond", distance, protA_ligB);
@@ -505,7 +532,6 @@ void findIonicInteraction(const Molecule& molA, const Molecule& molB, const Foun
     unsigned int indx_molA;
     unsigned int indx_molB;
     RDGeom::Point3D pos_a, pos_b;
-    float distRequired = 4.5;
     float distance;
     std::string atom_id_molA, atom_id_molB;
 
@@ -519,7 +545,7 @@ void findIonicInteraction(const Molecule& molA, const Molecule& molB, const Foun
                 pos_b = conformer_molB.getAtomPos(indx_molB);
                 distance = calculateDistance(pos_a, pos_b);
 
-                if (distance <= distRequired){
+                if (distance <= DISTANCE_IONIC){
                     getProtLigAtomID(molA, molB, indx_molA, indx_molB, atom_id_molA, atom_id_molB, protA_ligB);
                     std::cout << "Ionic\n";
                     output(molA.name, molB.name, atom_id_molA, "Cation", pos_a.x, pos_a.y, pos_a.z, atom_id_molB, "Anion", pos_b.x, pos_b.y, pos_b.z, "Ionic", distance, protA_ligB);
@@ -549,11 +575,11 @@ void findIonicInteraction(const Molecule& molA, const Molecule& molB, const Foun
                 centroid = calculateCentroid(pos_points_ring);
                 distance = calculateDistance(pos_a, centroid);
 
-                if (distance <= distRequired){
+                if (distance <= DISTANCE_IONIC){
                     normal = calculateNormalVector(pos_points_ring.at(0), pos_points_ring.at(1), pos_points_ring.at(2));    //finds the normal vector to the plane defined by the aromatic ring atoms
                     pos_c = normal + centroid; // it' a point on the line normal to the ring and passing throw the centroid
                     angle = calculateAngle(centroid, pos_c, pos_a); // calculates the angle that must be <30 for the Ionic bond requirements
-                    if((!isAngleInRange(angle, minAngle_required, maxAngle_required)) || angle == 30 || angle == 150){  //pos_c and pos_a can be on different sides of the aromatic ring plane
+                    if((!isAngleInRange(angle, MIN_ANGLE_IONIC, MAX_ANGLE_IONIC)) || angle == MIN_ANGLE_IONIC || angle == MAX_ANGLE_IONIC){  //pos_c and pos_a can be on different sides of the aromatic ring plane
                         getProtLigAtomID(molA, molB, indx_molA, indx_molB, atom_id_molA, atom_id_molB, protA_ligB);
                         std::cout << "Ionic\n";
                         output(molA.name, molB.name, atom_id_molA, "Cation", pos_a.x, pos_a.y, pos_a.z, atom_id_molB, "Aromatic_ring", centroid.x, centroid.y, centroid.z, "Ionic", distance, protA_ligB);  // For aromatic ring the name of the last atom in the vector conteining pair <atom of the pattern, atom of the molecule> and the position of the centroid are printed.
@@ -575,16 +601,13 @@ void findPiStacking(const Molecule& molA, const Molecule& molB, const FoundPatte
 
     if ((molA_pattern != molA_patterns.patternMatches.end()) && (molB_pattern != molB_patterns.patternMatches.end())){
         float planesAngle;
-        float planesAngle_minSandwich = 0;
-        float planesAngle_maxSandwich = 30; //TODO: forse tutte queste dichiarazioni vanno spostate
-        float planesAngle_minTshape = 50;
-        float planesAngle_maxTshape = 90;
 
         float normalCentroidAngle_A, normalCentroidAngle_B;
-        float normalCentroidAngle_min = 0;
-        float normalCentroidAngle_max;
+
+        std::string atom_id_molA, atom_id_molB;
 
         RDGeom::Point3D centroidA, centroidB, normalA, normalB, centroidsVector;
+        
         std::vector<RDGeom::Point3D> pos_ringA, pos_ringB;
 
         for (const auto& matchVect_molA : molA_pattern->second){ // for each aromatic ring found in molA
@@ -612,23 +635,20 @@ void findPiStacking(const Molecule& molA, const Molecule& molB, const FoundPatte
 
                 planesAngle = calculateVectorAngle(normalA, normalB); // finds the angle between the two aromatic rings
 
-                if(isAngleInRange(planesAngle, planesAngle_minSandwich, planesAngle_maxSandwich)){ // SANDWICH
-                    normalCentroidAngle_max = 33;
-                    distRequired = 5.5;
+                if(isAngleInRange(planesAngle, MIN_PLANES_ANGLE_SANDWICH, MAX_PLANES_ANGLE_SANDWICH)){ // SANDWICH
 
                     centroidsVector = centroidB - centroidA; // calculates the vector that links the two centroids
 
                     normalCentroidAngle_A = calculateVectorAngle(centroidsVector, normalA); //calculate the angle between the vector that links the two centroids and the normal of ring A
                     normalCentroidAngle_B = calculateVectorAngle(centroidsVector, normalB); //calculate the angle between the vector that links the two centroids and the normal of ring B
 
-                    if(distance <= distRequired && isAngleInRange(normalCentroidAngle_A, normalCentroidAngle_min, normalCentroidAngle_max) && isAngleInRange(normalCentroidAngle_B, normalCentroidAngle_min, normalCentroidAngle_max)){
+                    if(distance <= DISTANCE_SANDWICH && isAngleInRange(normalCentroidAngle_A, MIN_NORMAL_CENTROID_ANGLE_SANDWICH, MAX_NORMAL_CENTROID_ANGLE_SANDWICH) && isAngleInRange(normalCentroidAngle_B, MIN_NORMAL_CENTROID_ANGLE_SANDWICH, MAX_NORMAL_CENTROID_ANGLE_SANDWICH)){
+                        getProtLigAtomID(molA, molB, id_pointA, id_pointB, atom_id_molA, atom_id_molB, protA_ligB);
                         std::cout << "Pi Stacking - SANDWICH \n";
-                        //output(molA.name, molB.name, /*Protein Atom ID*/, "Aromatic_ring", centroidA.x, centroidA.y, centroidA.z, /*Ligand Atom ID*/, "Aromatic_ring", centroidB.x, centroidB.y, centroidB.z, "Pi Stacking", distance, protA_ligB);
+                        output(molA.name, molB.name, atom_id_molA, "Aromatic_ring", centroidA.x, centroidA.y, centroidA.z,  atom_id_molB, "Aromatic_ring", centroidB.x, centroidB.y, centroidB.z, "Pi Stacking", distance, protA_ligB);
                     }
                 }
-                else if(isAngleInRange(planesAngle, planesAngle_minTshape, planesAngle_maxTshape)){ // T SHAPE
-                    normalCentroidAngle_max = 30;
-                    distRequired = 6.5;
+                else if(isAngleInRange(planesAngle, MIN_PLANES_ANGLE_TSHAPE, MAX_PLANES_ANGLE_TSHAPE)){ // T SHAPE
 
                     centroidsVector = centroidB - centroidA; //calculates the vector that links the two centroids
 
@@ -646,9 +666,10 @@ void findPiStacking(const Molecule& molA, const Molecule& molB, const FoundPatte
                         if(doSegmentsIntersect(P1, centroidA, pos_ringA.at(k), pos_ringA.at((k+1)%pos_ringA.size()))) count ++; //counts the number of intersections
                     }
 
-                    if(distance <= distRequired && isAngleInRange(normalCentroidAngle_A, normalCentroidAngle_min, normalCentroidAngle_max) && isAngleInRange(normalCentroidAngle_B, normalCentroidAngle_min, normalCentroidAngle_max) && count < 1){
+                    if(distance <= DISTANCE_TSHAPE && isAngleInRange(normalCentroidAngle_A, MIN_NORMAL_CENTROID_ANGLE_TSHAPE, MAX_NORMAL_CENTROID_ANGLE_TSHAPE) && isAngleInRange(normalCentroidAngle_B, MIN_NORMAL_CENTROID_ANGLE_TSHAPE, MAX_NORMAL_CENTROID_ANGLE_TSHAPE) && count < 1){
+                        getProtLigAtomID(molA, molB, id_pointA, id_pointB, atom_id_molA, atom_id_molB, protA_ligB);
                         std::cout << "Pi Stacking - T-SHAPE \n";
-                        //output(molA.name, molB.name, /*Protein Atom ID*/, "Aromatic_ring", centroidA.x, centroidA.y, centroidA.z, /*Ligand Atom ID*/, "Aromatic_ring", centroidB.x, centroidB.y, centroidB.z, "Pi Stacking", distance, protA_ligB);
+                        output(molA.name, molB.name, atom_id_molA, "Aromatic_ring", centroidA.x, centroidA.y, centroidA.z,  atom_id_molB, "Aromatic_ring", centroidB.x, centroidB.y, centroidB.z, "Pi Stacking", distance, protA_ligB);
                     }
                 }
             }
@@ -689,24 +710,24 @@ void findMetalCoordination(const Molecule& molA, const Molecule& molB, const Fou
 
 
 void identifyInteractions(const Molecule& protein, const Molecule& ligand, const FoundPatterns& proteinPatterns, const FoundPatterns& ligandPatterns, const RDKit::Conformer& proteinConformer, const RDKit::Conformer& ligandConformer){
-    //every function will need to serch all the interactions of that type and for every one found call the output function that adds them to the CSV file
-    //considering some interactions can be formed both ways (cation-anion ; anion-cation) we call the find function two times  
+    // every function will need to serch all the interactions of that type and for every one found call the output function that adds them to the CSV file
+    // considering some interactions can be formed both ways (cation-anion ; anion-cation) we call the find function two times  
     
-    // findHydrophobicInteraction(protein, ligand, proteinPatterns, ligandPatterns, proteinConformer, ligandConformer, true);
+    findHydrophobicInteraction(protein, ligand, proteinPatterns, ligandPatterns, proteinConformer, ligandConformer, true);
 
-    // findHydrogenBond(protein, ligand, proteinPatterns, ligandPatterns, proteinConformer, ligandConformer, true);
-    // findHydrogenBond(ligand, protein, ligandPatterns, proteinPatterns, ligandConformer, proteinConformer, false);
+    findHydrogenBond(protein, ligand, proteinPatterns, ligandPatterns, proteinConformer, ligandConformer, true);
+    findHydrogenBond(ligand, protein, ligandPatterns, proteinPatterns, ligandConformer, proteinConformer, false);
 
-    // findHalogenBond(protein, ligand, proteinPatterns, ligandPatterns, proteinConformer, ligandConformer, true);
-    // findHalogenBond(ligand, protein, ligandPatterns, proteinPatterns, ligandConformer, proteinConformer, false);
+    findHalogenBond(protein, ligand, proteinPatterns, ligandPatterns, proteinConformer, ligandConformer, true);
+    findHalogenBond(ligand, protein, ligandPatterns, proteinPatterns, ligandConformer, proteinConformer, false);
 
-    // findIonicInteraction(protein, ligand, proteinPatterns, ligandPatterns, proteinConformer, ligandConformer, true);
-    // findIonicInteraction(ligand, protein, ligandPatterns, proteinPatterns, ligandConformer, proteinConformer, false);
+    findIonicInteraction(protein, ligand, proteinPatterns, ligandPatterns, proteinConformer, ligandConformer, true);
+    findIonicInteraction(ligand, protein, ligandPatterns, proteinPatterns, ligandConformer, proteinConformer, false);
 
     findPiStacking(protein, ligand, proteinPatterns, ligandPatterns, proteinConformer, ligandConformer, true);
 
-    // findMetalCoordination(protein, ligand, proteinPatterns, ligandPatterns, proteinConformer, ligandConformer, true);
-    // findMetalCoordination(ligand, protein, ligandPatterns, proteinPatterns, ligandConformer, proteinConformer, false);
+    findMetalCoordination(protein, ligand, proteinPatterns, ligandPatterns, proteinConformer, ligandConformer, true);
+    findMetalCoordination(ligand, protein, ligandPatterns, proteinPatterns, ligandConformer, proteinConformer, false);
 }
 
 // for eatch pattern of the Pattern enum looks if it is in the mol and saves all the matches in the MatchVectType field of the map inside FoundPatterns.
