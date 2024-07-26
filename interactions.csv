@@ -1,0 +1,48 @@
+LIGAND_NAME,PROTEIN_ATOM_ID,PROTEIN_PATTERN,PROTEIN_X,PROTEIN_Y,PROTEIN_Z,LIGAND_ATOM_ID,LIGAND_PATTERN,LIGAND_X,LIGAND_Y,LIGAND_Z,INTERACTION_TYPE,INTERACTION_DISTANCE
+build/esempioInput_10gs_ligand,A.TYR7. CE1,Hydrophobic,14.036,3.095,29.363,11(C),Hydrophobic,10.726,5.484,28.206,Hydrophobic,4.24288
+build/esempioInput_10gs_ligand,A.TYR7. CE1,Hydrophobic,14.036,3.095,29.363,12(S),Hydrophobic,11.291,4.524,26.81,Hydrophobic,4.01184
+build/esempioInput_10gs_ligand,A.TYR7. CZ ,Hydrophobic,13.846,1.938,28.621,12(S),Hydrophobic,11.291,4.524,26.81,Hydrophobic,4.06142
+build/esempioInput_10gs_ligand,A.TYR7. CZ ,Hydrophobic,13.846,1.938,28.621,16(C),Hydrophobic,9.464,2.135,28.133,Hydrophobic,4.41349
+build/esempioInput_10gs_ligand,A.PHE8. CB ,Hydrophobic,10.742,0.99,32.454,18(C),Hydrophobic,8.723,1.55,29.161,Hydrophobic,3.90305
+build/esempioInput_10gs_ligand,A.PHE8. CG ,Hydrophobic,10.344,2.426,32.635,18(C),Hydrophobic,8.723,1.55,29.161,Hydrophobic,3.93239
+build/esempioInput_10gs_ligand,A.PHE8. CG ,Hydrophobic,10.344,2.426,32.635,19(C),Hydrophobic,7.437,2.001,29.43,Hydrophobic,4.34779
+build/esempioInput_10gs_ligand,A.PHE8. CD2,Hydrophobic,10.68,3.38,31.679,11(C),Hydrophobic,10.726,5.484,28.206,Hydrophobic,4.06087
+build/esempioInput_10gs_ligand,A.PHE8. CD2,Hydrophobic,10.68,3.38,31.679,16(C),Hydrophobic,9.464,2.135,28.133,Hydrophobic,3.95004
+build/esempioInput_10gs_ligand,A.PHE8. CD2,Hydrophobic,10.68,3.38,31.679,18(C),Hydrophobic,8.723,1.55,29.161,Hydrophobic,3.67683
+build/esempioInput_10gs_ligand,A.PHE8. CD2,Hydrophobic,10.68,3.38,31.679,19(C),Hydrophobic,7.437,2.001,29.43,Hydrophobic,4.18051
+build/esempioInput_10gs_ligand,A.PHE8. CE1,Hydrophobic,9.306,4.171,33.966,26(C),Hydrophobic,6.683,5.941,31.441,Hydrophobic,4.04829
+build/esempioInput_10gs_ligand,A.PHE8. CE1,Hydrophobic,9.306,4.171,33.966,28(C),Hydrophobic,5.611,5.081,31.64,Hydrophobic,4.45998
+build/esempioInput_10gs_ligand,A.PHE8. CE2,Hydrophobic,10.337,4.724,31.856,11(C),Hydrophobic,10.726,5.484,28.206,Hydrophobic,3.74852
+build/esempioInput_10gs_ligand,A.PHE8. CE2,Hydrophobic,10.337,4.724,31.856,18(C),Hydrophobic,8.723,1.55,29.161,Hydrophobic,4.46568
+build/esempioInput_10gs_ligand,A.PHE8. CE2,Hydrophobic,10.337,4.724,31.856,26(C),Hydrophobic,6.683,5.941,31.441,Hydrophobic,3.87363
+build/esempioInput_10gs_ligand,A.PHE8. CZ ,Hydrophobic,9.649,5.12,33.002,24(C),Hydrophobic,6.555,7.062,30.633,Hydrophobic,4.35389
+build/esempioInput_10gs_ligand,A.PHE8. CZ ,Hydrophobic,9.649,5.12,33.002,26(C),Hydrophobic,6.683,5.941,31.441,Hydrophobic,3.45079
+build/esempioInput_10gs_ligand,A.PHE8. CZ ,Hydrophobic,9.649,5.12,33.002,28(C),Hydrophobic,5.611,5.081,31.64,Hydrophobic,4.26169
+build/esempioInput_10gs_ligand,A.VAL10. CG1,Hydrophobic,9.55,-2.724,29.493,18(C),Hydrophobic,8.723,1.55,29.161,Hydrophobic,4.36592
+build/esempioInput_10gs_ligand,A.VAL10. CG2,Hydrophobic,11.359,-1.16,28.743,16(C),Hydrophobic,9.464,2.135,28.133,Hydrophobic,3.84969
+build/esempioInput_10gs_ligand,A.VAL10. CG2,Hydrophobic,11.359,-1.16,28.743,18(C),Hydrophobic,8.723,1.55,29.161,Hydrophobic,3.80359
+build/esempioInput_10gs_ligand,A.TRP38. CG ,Hydrophobic,7.661,6.931,35.701,26(C),Hydrophobic,6.683,5.941,31.441,Hydrophobic,4.48154
+build/esempioInput_10gs_ligand,A.TRP38. CD1,Hydrophobic,6.79,7.298,34.715,24(C),Hydrophobic,6.555,7.062,30.633,Hydrophobic,4.09556
+build/esempioInput_10gs_ligand,A.TRP38. CD1,Hydrophobic,6.79,7.298,34.715,26(C),Hydrophobic,6.683,5.941,31.441,Hydrophobic,3.5457
+build/esempioInput_10gs_ligand,A.TRP38. CD1,Hydrophobic,6.79,7.298,34.715,28(C),Hydrophobic,5.611,5.081,31.64,Hydrophobic,3.96998
+build/esempioInput_10gs_ligand,A.TRP38. CE2,Hydrophobic,8.638,8.498,34.344,24(C),Hydrophobic,6.555,7.062,30.633,Hydrophobic,4.49138
+build/esempioInput_10gs_ligand,A.TRP38. CE2,Hydrophobic,8.638,8.498,34.344,26(C),Hydrophobic,6.683,5.941,31.441,Hydrophobic,4.33448
+build/esempioInput_10gs_ligand,A.GLN51. CB ,Hydrophobic,12.079,10.738,29.534,5(C),Hydrophobic,13.394,8.708,26.271,Hydrophobic,4.06169
+build/esempioInput_10gs_ligand,A.TYR108. CE1,Hydrophobic,5.295,1.837,24.731,15(C),Hydrophobic,7.64,3.614,27.65,Hydrophobic,4.14455
+build/esempioInput_10gs_ligand,A.TYR108. CE1,Hydrophobic,5.295,1.837,24.731,17(C),Hydrophobic,6.893,3.037,28.673,Hydrophobic,4.41961
+build/esempioInput_10gs_ligand,A.TYR108. CZ ,Hydrophobic,6.587,1.623,24.267,13(C),Hydrophobic,9.729,3.804,26.262,Hydrophobic,4.31381
+build/esempioInput_10gs_ligand,A.TYR108. CZ ,Hydrophobic,6.587,1.623,24.267,14(C),Hydrophobic,8.93,3.171,27.37,Hydrophobic,4.18504
+build/esempioInput_10gs_ligand,A.TYR108. CZ ,Hydrophobic,6.587,1.623,24.267,15(C),Hydrophobic,7.64,3.614,27.65,Hydrophobic,4.06418
+build/esempioInput_10gs_ligand,A.TRP38. HE1,Hydrogen donor,6.917,8.675,33.07,31(O),Hydrogen acceptor,7.116,9.957,31.433,Hydrogen Bond,3.01672
+build/esempioInput_10gs_ligand,A.LEU52. H  ,Hydrogen donor,12.383,8.181,30.855,21(O),Hydrogen acceptor,10.522,8.023,30.084,Hydrogen Bond,3.03505
+build/esempioInput_10gs_ligand,A.SER65. H  ,Hydrogen donor,18.325,8.326,25.485,3(O),Hydrogen acceptor,16.52,8.515,25.94,Hydrogen Bond,2.8675
+build/esempioInput_10gs_ligand,A.SER65. H  ,Hydrogen donor,18.325,8.326,25.485,8(O),Hydrogen acceptor,16.578,8.524,23.744,Hydrogen Bond,3.35592
+build/esempioInput_10gs_ligand,A.SER65. HG ,Hydrogen donor,17.888,7.392,23.761,8(O),Hydrogen acceptor,16.578,8.524,23.744,Hydrogen Bond,2.66037
+build/esempioInput_10gs_ligand,33(H),Hydrogen acceptor,14.436,13.658,23.242,B.ASP98. OD2,Hydrogen donor,14.3522,11.487,23.5482,Hydrogen Bond,2.94919
+build/esempioInput_10gs_ligand,35(H),Hydrogen acceptor,17.369,12.01,24.339,A.GLN64. OE1,Hydrogen donor,15.9821,11.2614,23.5033,Hydrogen Bond,2.7017
+build/esempioInput_10gs_ligand,41(H),Hydrogen acceptor,13.942,7.114,29.101,A.LEU52. O  ,Hydrogen donor,12.3741,7.8085,28.3711,Hydrogen Bond,2.71278
+build/esempioInput_10gs_ligand,52(H),Hydrogen acceptor,7.037,7.219,26.157, .HOH93. O  ,Hydrogen donor,8.027,7.0694,28.4506,Hydrogen Bond,3.41684
+build/esempioInput_10gs_ligand,A.ARG13. NE ,Cation,13.987,6.117,22.568,8(O),Anion,16.578,8.524,23.744,Ionic,3.72692
+build/esempioInput_10gs_ligand,A.ARG13. NH1,Cation,15.904,6.417,21.32,8(O),Anion,16.578,8.524,23.744,Ionic,3.28169
+build/esempioInput_10gs_ligand,A.LYS44. NZ ,Cation,7.455,12.94,32.449,31(O),Anion,7.116,9.957,31.433,Ionic,3.16946
+build/esempioInput_10gs_ligand,A.LYS44. NZ ,Cation,7.455,12.94,32.449,32(O),Anion,7.569,10.068,29.284,Ionic,4.27535
