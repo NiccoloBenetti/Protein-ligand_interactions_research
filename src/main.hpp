@@ -1,6 +1,11 @@
-#ifndef INTERACTION_MAIN_HDR
-#define INTERACTION_MAIN_HDR
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-// this is just an header example
+void launchDistanceKernel2D(float* d_posA_x, float* d_posA_y, float* d_posA_z,
+                            float* d_posB_x, float* d_posB_y, float* d_posB_z,
+                            float* d_distances, int numA, int numB, int blockSizeX, int blockSizeY);
 
-#endif // INTERACTION_MAIN_HDR
+#ifdef __cplusplus
+}
+#endif

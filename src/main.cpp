@@ -1,8 +1,8 @@
     #include <cuda_runtime.h>
     #include <device_launch_parameters.h>
     #include "helpers.cuh"
+    #include "main.hpp"
 
-    
     #include <cstdlib>
     #include <iostream>
     #include <cstdio> 
@@ -425,34 +425,106 @@
 
     // ------------------------------------------------------- INTERACTIONS --------------------------------------------------------------------------
 
+
+
+
+    // Dichiarazione della funzione wrapper definita in kernel.cu
+    extern void launchDistanceKernel2D(float* d_posA_x, float* d_posA_y, float* d_posA_z,
+                                float* d_posB_x, float* d_posB_y, float* d_posB_z,
+                                float* d_distances, int numA, int numB, int blockSizeX, int blockSizeY);
+
+
+
+
+
     void findHydrophobicInteraction(const Molecule& molA, const Molecule& molB, const FoundPatterns& molA_patterns, const FoundPatterns& molB_patterns, const RDKit::Conformer& conformer_molA, const RDKit::Conformer& conformer_molB, const bool protA_ligB, const bool printInteractions){
         auto tmpA = molA_patterns.patternMatches.find(Pattern::Hydrophobic);
         auto tmpB = molB_patterns.patternMatches.find(Pattern::Hydrophobic);
 
         //Check that there is at list one Hydrophobic pattern found on both protein and ligand if yes serches and prints the bonds
         if ((tmpA != molA_patterns.patternMatches.end()) && (tmpB != molB_patterns.patternMatches.end())){
-            RDGeom::Point3D pos_a, pos_b;    //are needed to easly manage x,y,z cordinates that will be feeded to the output funcion
-            float distance;
-            unsigned int indx_molA;     //will contain the atom index for molA in order to calculate distances
-            unsigned int indx_molB;
-            std::string atom_id_molA, atom_id_molB;
+            std::vector<float> posA_x, posA_y, posA_z;
+            std::vector<float> posB_x, posB_y, posB_z;
 
-            for (const auto& matchVectA : tmpA->second){  //for every block of the vector containing Hydrophobic matcher in molA_patterns.patterMatches
-                    indx_molA = matchVectA.at(0).second;  //gets the index number of the atom in molA that we whant to check
-                    pos_a = conformer_molA.getAtomPos(indx_molA);
-                for(const auto& matchVectB : tmpB->second){ //for every block of the vector containing Hydrophobic matcher in molB_patterns.patternMatches
-                    indx_molB = matchVectB.at(0).second;
-                    pos_b = conformer_molB.getAtomPos(indx_molB);
-                    distance = calculateDistance(pos_a, pos_b);
+            // Estrarre le posizioni atomiche da molA usando RDKit
+            for (const auto& matchVectA : tmpA->second) {
+                unsigned int indx_molA = matchVectA.at(0).second;
+                RDGeom::Point3D posA = conformer_molA.getAtomPos(indx_molA);
+                posA_x.push_back(posA.x);
+                posA_y.push_back(posA.y);
+                posA_z.push_back(posA.z);
+            }
 
-                    if (distance <= DISTANCE_HYDROPHOBIC){
-                        getProtLigAtomID(molA, molB, indx_molA, indx_molB, atom_id_molA, atom_id_molB, protA_ligB);
-                        if(printInteractions)
+            // Estrarre le posizioni atomiche da molB usando RDKit
+            for (const auto& matchVectB : tmpB->second) {
+                unsigned int indx_molB = matchVectB.at(0).second;
+                RDGeom::Point3D posB = conformer_molB.getAtomPos(indx_molB);
+                posB_x.push_back(posB.x);
+                posB_y.push_back(posB.y);
+                posB_z.push_back(posB.z);
+            }
+
+            // Allocazione e trasferimento dei dati alla GPU
+            float *d_posA_x, *d_posA_y, *d_posA_z;
+            float *d_posB_x, *d_posB_y, *d_posB_z;
+            float *d_distances;
+
+            cudaMalloc(&d_posA_x, posA_x.size() * sizeof(float));
+            cudaMalloc(&d_posA_y, posA_y.size() * sizeof(float));
+            cudaMalloc(&d_posA_z, posA_z.size() * sizeof(float));
+            cudaMalloc(&d_posB_x, posB_x.size() * sizeof(float));
+            cudaMalloc(&d_posB_y, posB_y.size() * sizeof(float));
+            cudaMalloc(&d_posB_z, posB_z.size() * sizeof(float));
+            cudaMalloc(&d_distances, posA_x.size() * posB_x.size() * sizeof(float));
+
+            cudaMemcpy(d_posA_x, posA_x.data(), posA_x.size() * sizeof(float), cudaMemcpyHostToDevice);
+            cudaMemcpy(d_posA_y, posA_y.data(), posA_y.size() * sizeof(float), cudaMemcpyHostToDevice);
+            cudaMemcpy(d_posA_z, posA_z.data(), posA_z.size() * sizeof(float), cudaMemcpyHostToDevice);
+            cudaMemcpy(d_posB_x, posB_x.data(), posB_x.size() * sizeof(float), cudaMemcpyHostToDevice);
+            cudaMemcpy(d_posB_y, posB_y.data(), posB_y.size() * sizeof(float), cudaMemcpyHostToDevice);
+            cudaMemcpy(d_posB_z, posB_z.data(), posB_z.size() * sizeof(float), cudaMemcpyHostToDevice);
+
+            // Dimensioni della griglia e dei blocchi
+            int blockSizeX = 16;
+            int blockSizeY = 16;
+            // Definizione blocchi e griglie: manteniamo le dimensioni dei blocchi e della griglia bidimensionali
+            dim3 threadsPerBlock(blockSizeX, blockSizeY);
+            dim3 blocksPerGrid((posA_x.size() + blockSizeX - 1) / blockSizeX, 
+                            (posB_x.size() + blockSizeY - 1) / blockSizeY);
+
+            // Lancia il kernel CUDA per calcolare le distanze utilizzando il wrapper
+            launchDistanceKernel2D(d_posA_x, d_posA_y, d_posA_z,
+                            d_posB_x, d_posB_y, d_posB_z,
+                            d_distances, posA_x.size(), posB_x.size(), blockSizeX, blockSizeY);
+
+
+            // Copia i risultati dalla GPU alla CPU
+            std::vector<float> distances(posA_x.size() * posB_x.size());
+            cudaMemcpy(distances.data(), d_distances, distances.size() * sizeof(float), cudaMemcpyDeviceToHost);
+
+            // Post-processamento sulla CPU per identificare interazioni idrofobiche
+            for (size_t i = 0; i < posA_x.size(); ++i) {
+                for (size_t j = 0; j < posB_x.size(); ++j) {
+                    float distance = distances[i * posB_x.size() + j];
+                    if (distance <= DISTANCE_HYDROPHOBIC) {
+                        std::string atom_id_molA, atom_id_molB;
+                        getProtLigAtomID(molA, molB, i, j, atom_id_molA, atom_id_molB, protA_ligB);
+                        if (printInteractions)
                             std::cout << "Hydrophobic\n";
-                        output(molA.name, molB.name, atom_id_molA, "Hydrophobic", pos_a.x, pos_a.y, pos_a.z, atom_id_molB, "Hydrophobic", pos_b.x, pos_b.y, pos_b.z, "Hydrophobic", distance, protA_ligB);
+                        output(molA.name, molB.name, atom_id_molA, "Hydrophobic", posA_x[i], posA_y[i], posA_z[i],
+                            atom_id_molB, "Hydrophobic", posB_x[j], posB_y[j], posB_z[j], "Hydrophobic", distance, protA_ligB);
                     }
                 }
             }
+
+            // Pulizia della memoria GPU
+            cudaFree(d_posA_x);
+            cudaFree(d_posA_y);
+            cudaFree(d_posA_z);
+            cudaFree(d_posB_x);
+            cudaFree(d_posB_y);
+            cudaFree(d_posB_z);
+            cudaFree(d_distances);
         }
     }
 
