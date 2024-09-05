@@ -855,38 +855,95 @@
         }
     }
 
-    void findMetalCoordination(const Molecule& molA, const Molecule& molB, const FoundPatterns& molA_patterns, const FoundPatterns& molB_patterns, const RDKit::Conformer& conformer_molA, const RDKit::Conformer& conformer_molB, const bool protA_ligB, const bool printInteractions){
-        auto tmpA = molA_patterns.patternMatches.find(Pattern::Metal);
-        auto tmpB = molB_patterns.patternMatches.find(Pattern::Chelated);
+ void findMetalCoordination(const Molecule& molA, const Molecule& molB, const FoundPatterns& molA_patterns, const FoundPatterns& molB_patterns, const RDKit::Conformer& conformer_molA, const RDKit::Conformer& conformer_molB, const bool protA_ligB, const bool printInteractions) {
+    auto tmpA = molA_patterns.patternMatches.find(Pattern::Metal);
+    auto tmpB = molB_patterns.patternMatches.find(Pattern::Chelated);
 
-        if ((tmpA != molA_patterns.patternMatches.end()) && (tmpB != molB_patterns.patternMatches.end())){
-            RDGeom::Point3D pos_a, pos_b; 
-            float distRequired = 2.8;
-            float distance;
-            unsigned int indx_molA;
-            unsigned int indx_molB;
-            std::string atom_id_molA, atom_id_molB;
+    if ((tmpA != molA_patterns.patternMatches.end()) && (tmpB != molB_patterns.patternMatches.end())) {
+        std::vector<float> metal_x, metal_y, metal_z;
+        std::vector<float> chelated_x, chelated_y, chelated_z;
 
-            for (const auto& matchVectA : tmpA->second){
-                    indx_molA = matchVectA.at(0).second;
-                    pos_a = conformer_molA.getAtomPos(indx_molA);
-                for(const auto& matchVectB : tmpB->second){
-                    indx_molB = matchVectB.at(0).second;
-                    pos_b = conformer_molB.getAtomPos(indx_molB);
-                    distance = calculateDistance(pos_a, pos_b);
+        // Estrai le coordinate per i metalli
+        for (const auto& matchVectA : tmpA->second) {
+            unsigned int indx_molA = matchVectA.at(0).second;
+            RDGeom::Point3D pos_a = conformer_molA.getAtomPos(indx_molA);
+            metal_x.push_back(pos_a.x);
+            metal_y.push_back(pos_a.y);
+            metal_z.push_back(pos_a.z);
+        }
 
-                    if (distance <= distRequired){
-                        getProtLigAtomID(molA, molB, indx_molA, indx_molB, atom_id_molA, atom_id_molB, protA_ligB);
-                        if(printInteractions)
-                            std::cout << "Metal\n";
-                        output(molA.name, molB.name, atom_id_molA, "Metal", pos_a.x, pos_a.y, pos_a.z, atom_id_molB, "Chelated", pos_b.x, pos_b.y, pos_b.z, "Metal", distance, protA_ligB);
-                    }
+        // Estrai le coordinate per i chelati
+        for (const auto& matchVectB : tmpB->second) {
+            unsigned int indx_molB = matchVectB.at(0).second;
+            RDGeom::Point3D pos_b = conformer_molB.getAtomPos(indx_molB);
+            chelated_x.push_back(pos_b.x);
+            chelated_y.push_back(pos_b.y);
+            chelated_z.push_back(pos_b.z);
+        }
+
+        // Numero di metalli e chelati
+        int numMetals = metal_x.size();
+        int numChelated = chelated_x.size();
+
+        // Allocazione memoria GPU
+        float *d_metal_x, *d_metal_y, *d_metal_z;
+        float *d_chelated_x, *d_chelated_y, *d_chelated_z;
+        float *d_distances;
+
+        cudaMalloc(&d_metal_x, numMetals * sizeof(float));
+        cudaMalloc(&d_metal_y, numMetals * sizeof(float));
+        cudaMalloc(&d_metal_z, numMetals * sizeof(float));
+        cudaMalloc(&d_chelated_x, numChelated * sizeof(float));
+        cudaMalloc(&d_chelated_y, numChelated * sizeof(float));
+        cudaMalloc(&d_chelated_z, numChelated * sizeof(float));
+        cudaMalloc(&d_distances, numMetals * numChelated * sizeof(float));
+
+        // Copia dei dati sulla GPU
+        cudaMemcpy(d_metal_x, metal_x.data(), numMetals * sizeof(float), cudaMemcpyHostToDevice);
+        cudaMemcpy(d_metal_y, metal_y.data(), numMetals * sizeof(float), cudaMemcpyHostToDevice);
+        cudaMemcpy(d_metal_z, metal_z.data(), numMetals * sizeof(float), cudaMemcpyHostToDevice);
+        cudaMemcpy(d_chelated_x, chelated_x.data(), numChelated * sizeof(float), cudaMemcpyHostToDevice);
+        cudaMemcpy(d_chelated_y, chelated_y.data(), numChelated * sizeof(float), cudaMemcpyHostToDevice);
+        cudaMemcpy(d_chelated_z, chelated_z.data(), numChelated * sizeof(float), cudaMemcpyHostToDevice);
+
+        // Lancia il kernel CUDA per calcolare le distanze
+        int blockSizeX = 16;
+        int blockSizeY = 16;
+        float distRequired = 2.8f;
+        launchDistanceKernel2D(d_metal_x, d_metal_y, d_metal_z,
+                                      d_chelated_x, d_chelated_y, d_chelated_z,
+                                      d_distances, numMetals, numChelated, blockSizeX, blockSizeY);
+
+        // Copia dei risultati dalla GPU alla CPU
+        std::vector<float> distances(numMetals * numChelated);
+        cudaMemcpy(distances.data(), d_distances, numMetals * numChelated * sizeof(float), cudaMemcpyDeviceToHost);
+
+        // Post-processamento sulla CPU per controllare le distanze e stampare i risultati
+        for (int i = 0; i < numMetals; ++i) {
+            for (int j = 0; j < numChelated; ++j) {
+                float distance = distances[i * numChelated + j];
+                if (distance <= distRequired) { 
+                    std::string atom_id_molA, atom_id_molB;
+                    getProtLigAtomID(molA, molB, i, j, atom_id_molA, atom_id_molB, protA_ligB);
+                    if (printInteractions)
+                        std::cout << "Metal\n";
+                    output(molA.name, molB.name, atom_id_molA, "Metal", metal_x[i], metal_y[i], metal_z[i],
+                           atom_id_molB, "Chelated", chelated_x[j], chelated_y[j], chelated_z[j],
+                           "Metal", distance, protA_ligB);
                 }
             }
         }
 
+        // Pulizia della memoria GPU
+        cudaFree(d_metal_x);
+        cudaFree(d_metal_y);
+        cudaFree(d_metal_z);
+        cudaFree(d_chelated_x);
+        cudaFree(d_chelated_y);
+        cudaFree(d_chelated_z);
+        cudaFree(d_distances);
     }
-
+}
 
     void identifyInteractions(const Molecule& protein, const Molecule& ligand, const FoundPatterns& proteinPatterns, const FoundPatterns& ligandPatterns, const RDKit::Conformer& proteinConformer, const RDKit::Conformer& ligandConformer, const bool printInteractions){
         // every function will need to serch all the interactions of that type and for every one found call the output function that adds them to the CSV file

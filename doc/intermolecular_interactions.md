@@ -27,14 +27,14 @@ The following are the interaction requirements:
 1. atom-atom distance must be lower or equal than 4.5 Angstrom
 
 
-### Hydrogen bond
+### Hydrogen bond //check
 
 This interaction occurs between an hydrogen donor and an hydrogen acceptor, where the hydrogen is shared, i.e. `[hydrogen_donor]-[hydrogen] ... [hydrogen_acceptor]`.
 The following are the interaction requirements:
 1. the atom-atom distance between donor and acceptor must be lower or equal than 3.5 Angstrom
 2. the angle between the donor-hydrogen atoms and the hydrogen-acceptor atoms must be between 130 and 180 degree.
 
-### Halogen bond
+### Halogen bond 
 
 This interaction is similar to the hydrogen bond, with the difference that the shared atom is an halogen, i.e. `[halogen_donor]-[halogen] ... [halogen_acceptor]-[any]`.
 The following are the interaction requirements:
