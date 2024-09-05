@@ -433,6 +433,13 @@
                                 float* d_posB_x, float* d_posB_y, float* d_posB_z,
                                 float* d_distances, int numA, int numB, int blockSizeX, int blockSizeY);
 
+    extern void launchHydrogenBondKernel(float* d_donor_x, float* d_donor_y, float* d_donor_z,
+                                         float* d_hydrogen_x, float* d_hydrogen_y, float* d_hydrogen_z,
+                                         float* d_acceptor_x, float* d_acceptor_y, float* d_acceptor_z,
+                                         float* d_distances, float* d_angles,
+                                         int numDonors, int numAcceptors, int blockSizeX, int blockSizeY);
+
+
 
 
 
@@ -528,38 +535,125 @@
         }
     }
 
-    void findHydrogenBond(const Molecule& molA, const Molecule& molB, const FoundPatterns& molA_patterns, const FoundPatterns& molB_patterns, const RDKit::Conformer& conformer_molA, const RDKit::Conformer& conformer_molB, const bool protA_ligB, const bool printInteractions){
-        auto molA_pattern = molA_patterns.patternMatches.find(Pattern::Hydrogen_donor_H);
-        auto molB_pattern = molB_patterns.patternMatches.find(Pattern::Hydrogen_acceptor);
-        float distance;
-    if ((molA_pattern != molA_patterns.patternMatches.end()) && (molB_pattern != molB_patterns.patternMatches.end())){ // if there are the researched patterns in both the molucles  
-            std::string atom_id_molA, atom_id_molB;
-            RDGeom::Point3D pos_donor, pos_hydrogen, pos_acceptor; 
+    void findHydrogenBond(const Molecule& molA, const Molecule& molB, const FoundPatterns& molA_patterns, const FoundPatterns& molB_patterns, const RDKit::Conformer& conformer_molA, const RDKit::Conformer& conformer_molB, const bool protA_ligB, const bool printInteractions) {
+    auto molA_pattern = molA_patterns.patternMatches.find(Pattern::Hydrogen_donor_H);
+    auto molB_pattern = molB_patterns.patternMatches.find(Pattern::Hydrogen_acceptor);
+    float distance;
 
-            for(const auto& matchVect_molA : molA_pattern->second){ // for each Hydrogen_donor-H pattern in molA
-                int id_donor = matchVect_molA.at(0).second; // gets the donor id
-                int id_hydrogen = matchVect_molA.at(1).second; //gets the hydrogen id
+    if ((molA_pattern != molA_patterns.patternMatches.end()) && (molB_pattern != molB_patterns.patternMatches.end())) {  
+        std::vector<float> donor_x, donor_y, donor_z;
+        std::vector<float> hydrogen_x, hydrogen_y, hydrogen_z;
+        std::vector<float> acceptor_x, acceptor_y, acceptor_z;
 
-                pos_donor = conformer_molA.getAtomPos(id_donor); // gets the 3D positioning of the donor
-                pos_hydrogen = conformer_molA.getAtomPos(id_hydrogen); // gets the 3D positioning of the hydrogen
+        // Estrazione delle coordinate da molA (donatore e idrogeno)
+        for (const auto& matchVect_molA : molA_pattern->second) {
+            int id_donor = matchVect_molA.at(0).second;
+            int id_hydrogen = matchVect_molA.at(1).second;
 
-                for(const auto& matchVect_molB : molB_pattern->second){ //for each Hydrogen_acceptor pattern in molB
-                    int id_acceptor = matchVect_molB.at(0).second; // gets the acceptor id
-                    pos_acceptor = conformer_molB.getAtomPos(id_acceptor); // gets the 3D positioning of the acceptor
+            RDGeom::Point3D pos_donor = conformer_molA.getAtomPos(id_donor);
+            RDGeom::Point3D pos_hydrogen = conformer_molA.getAtomPos(id_hydrogen);
 
-                    distance = calculateDistance(pos_donor, pos_acceptor); //finds the distance between donor and acceptor
-                    float angle = calculateAngle(pos_hydrogen, pos_donor, pos_acceptor); //finds the angle between the donor-hydrogen atoms and the hydrogen-acceptor atoms
+            donor_x.push_back(pos_donor.x);
+            donor_y.push_back(pos_donor.y);
+            donor_z.push_back(pos_donor.z);
 
-                    if(distance <= DISTANCE_HYDROGENBOND && isAngleInRange(angle, MIN_ANGLE_HYDROGENBOND, MAX_ANGLE_HYDROGENBOND)){
-                        getProtLigAtomID(molA, molB, id_hydrogen, id_acceptor, atom_id_molA, atom_id_molB, protA_ligB);
-                        if(printInteractions)
-                            std::cout << "Hydrogen bond\n";
-                        output(molA.name, molB.name, atom_id_molA, "Hydrogen donor", pos_hydrogen.x, pos_hydrogen.y, pos_hydrogen.z, atom_id_molB, "Hydrogen acceptor", pos_acceptor.x, pos_acceptor.y, pos_acceptor.z, "Hydrogen Bond", distance, protA_ligB);
-                    }
+            hydrogen_x.push_back(pos_hydrogen.x);
+            hydrogen_y.push_back(pos_hydrogen.y);
+            hydrogen_z.push_back(pos_hydrogen.z);
+        }
+
+        // Estrazione delle coordinate da molB (accettore)
+        for (const auto& matchVect_molB : molB_pattern->second) {
+            int id_acceptor = matchVect_molB.at(0).second;
+            RDGeom::Point3D pos_acceptor = conformer_molB.getAtomPos(id_acceptor);
+
+            acceptor_x.push_back(pos_acceptor.x);
+            acceptor_y.push_back(pos_acceptor.y);
+            acceptor_z.push_back(pos_acceptor.z);
+        }
+
+        // Allocazione della memoria sulla GPU per le coordinate e i risultati
+        float *d_donor_x, *d_donor_y, *d_donor_z;
+        float *d_hydrogen_x, *d_hydrogen_y, *d_hydrogen_z;
+        float *d_acceptor_x, *d_acceptor_y, *d_acceptor_z;
+        float *d_distances, *d_angles;
+
+        cudaMalloc(&d_donor_x, donor_x.size() * sizeof(float));
+        cudaMalloc(&d_donor_y, donor_y.size() * sizeof(float));
+        cudaMalloc(&d_donor_z, donor_z.size() * sizeof(float));
+        cudaMalloc(&d_hydrogen_x, hydrogen_x.size() * sizeof(float));
+        cudaMalloc(&d_hydrogen_y, hydrogen_y.size() * sizeof(float));
+        cudaMalloc(&d_hydrogen_z, hydrogen_z.size() * sizeof(float));
+        cudaMalloc(&d_acceptor_x, acceptor_x.size() * sizeof(float));
+        cudaMalloc(&d_acceptor_y, acceptor_y.size() * sizeof(float));
+        cudaMalloc(&d_acceptor_z, acceptor_z.size() * sizeof(float));
+        cudaMalloc(&d_distances, donor_x.size() * acceptor_x.size() * sizeof(float));
+        cudaMalloc(&d_angles, donor_x.size() * acceptor_x.size() * sizeof(float));
+
+        // Copia dei dati sulla GPU
+        cudaMemcpy(d_donor_x, donor_x.data(), donor_x.size() * sizeof(float), cudaMemcpyHostToDevice);
+        cudaMemcpy(d_donor_y, donor_y.data(), donor_y.size() * sizeof(float), cudaMemcpyHostToDevice);
+        cudaMemcpy(d_donor_z, donor_z.data(), donor_z.size() * sizeof(float), cudaMemcpyHostToDevice);
+        cudaMemcpy(d_hydrogen_x, hydrogen_x.data(), hydrogen_x.size() * sizeof(float), cudaMemcpyHostToDevice);
+        cudaMemcpy(d_hydrogen_y, hydrogen_y.data(), hydrogen_y.size() * sizeof(float), cudaMemcpyHostToDevice);
+        cudaMemcpy(d_hydrogen_z, hydrogen_z.data(), hydrogen_z.size() * sizeof(float), cudaMemcpyHostToDevice);
+        cudaMemcpy(d_acceptor_x, acceptor_x.data(), acceptor_x.size() * sizeof(float), cudaMemcpyHostToDevice);
+        cudaMemcpy(d_acceptor_y, acceptor_y.data(), acceptor_y.size() * sizeof(float), cudaMemcpyHostToDevice);
+        cudaMemcpy(d_acceptor_z, acceptor_z.data(), acceptor_z.size() * sizeof(float), cudaMemcpyHostToDevice);
+
+        // Definizione delle dimensioni di blocchi e griglie per il kernel CUDA
+        int blockSizeX = 16;
+        int blockSizeY = 16;
+        dim3 threadsPerBlock(blockSizeX, blockSizeY);
+        dim3 blocksPerGrid((donor_x.size() + blockSizeX - 1) / blockSizeX,
+                           (acceptor_x.size() + blockSizeY - 1) / blockSizeY);
+
+        // Lancia il kernel CUDA per calcolare distanze e angoli
+        launchHydrogenBondKernel(d_donor_x, d_donor_y, d_donor_z,
+                         d_hydrogen_x, d_hydrogen_y, d_hydrogen_z,
+                         d_acceptor_x, d_acceptor_y, d_acceptor_z,
+                         d_distances, d_angles,
+                         donor_x.size(), acceptor_x.size(), blockSizeX, blockSizeY);
+
+
+        // Copia dei risultati dalla GPU alla CPU
+        std::vector<float> distances(donor_x.size() * acceptor_x.size());
+        std::vector<float> angles(donor_x.size() * acceptor_x.size());
+        cudaMemcpy(distances.data(), d_distances, distances.size() * sizeof(float), cudaMemcpyDeviceToHost);
+        cudaMemcpy(angles.data(), d_angles, angles.size() * sizeof(float), cudaMemcpyDeviceToHost);
+
+        // Post-processamento sulla CPU per trovare i legami a idrogeno
+        for (size_t i = 0; i < donor_x.size(); ++i) {
+            for (size_t j = 0; j < acceptor_x.size(); ++j) {
+                float distance = distances[i * acceptor_x.size() + j];
+                float angle = angles[i * acceptor_x.size() + j];
+
+                if (distance <= DISTANCE_HYDROGENBOND && isAngleInRange(angle, MIN_ANGLE_HYDROGENBOND, MAX_ANGLE_HYDROGENBOND)) {
+                    std::string atom_id_molA, atom_id_molB;
+                    getProtLigAtomID(molA, molB, i, j, atom_id_molA, atom_id_molB, protA_ligB);
+                    if (printInteractions)
+                        std::cout << "Hydrogen bond\n";
+                    output(molA.name, molB.name, atom_id_molA, "Hydrogen donor", hydrogen_x[i], hydrogen_y[i], hydrogen_z[i],
+                           atom_id_molB, "Hydrogen acceptor", acceptor_x[j], acceptor_y[j], acceptor_z[j], "Hydrogen Bond", distance, protA_ligB);
                 }
             }
         }
+
+        // Pulizia della memoria GPU
+        cudaFree(d_donor_x);
+        cudaFree(d_donor_y);
+        cudaFree(d_donor_z);
+        cudaFree(d_hydrogen_x);
+        cudaFree(d_hydrogen_y);
+        cudaFree(d_hydrogen_z);
+        cudaFree(d_acceptor_x);
+        cudaFree(d_acceptor_y);
+        cudaFree(d_acceptor_z);
+        cudaFree(d_distances);
+        cudaFree(d_angles);
     }
+}
+
 
     void findHalogenBond(const Molecule& molA, const Molecule& molB, const FoundPatterns& molA_patterns, const FoundPatterns& molB_patterns, const RDKit::Conformer& conformer_molA, const RDKit::Conformer& conformer_molB, const bool protA_ligB, const bool printInteractions){
         auto molA_pattern = molA_patterns.patternMatches.find(Pattern::Halogen_donor_halogen);

@@ -33,3 +33,51 @@ extern "C" void launchDistanceKernel2D(float* d_posA_x, float* d_posA_y, float* 
                                                                    d_posB_x, d_posB_y, d_posB_z,
                                                                    d_distances, numA, numB);
 }
+
+__global__ void calculateHydrogenBondKernel(float* donor_x, float* donor_y, float* donor_z,
+                                            float* hydrogen_x, float* hydrogen_y, float* hydrogen_z,
+                                            float* acceptor_x, float* acceptor_y, float* acceptor_z,
+                                            float* distances, float* angles, int numDonors, int numAcceptors) {
+    int i = blockIdx.x * blockDim.x + threadIdx.x;  // Indice per il donatore
+    int j = blockIdx.y * blockDim.y + threadIdx.y;  // Indice per l'accettore
+
+    if (i < numDonors && j < numAcceptors) {
+        // Calcolo della distanza euclidea tra donatore e accettore
+        float dx = donor_x[i] - acceptor_x[j];
+        float dy = donor_y[i] - acceptor_y[j];
+        float dz = donor_z[i] - acceptor_z[j];
+        distances[i * numAcceptors + j] = sqrtf(dx * dx + dy * dy + dz * dz);
+
+        // Calcolo dell'angolo tra donatore, idrogeno e accettore
+        float hx = hydrogen_x[i], hy = hydrogen_y[i], hz = hydrogen_z[i];
+        float dhx = donor_x[i] - hx, dhy = donor_y[i] - hy, dhz = donor_z[i] - hz;
+        float ahx = acceptor_x[j] - hx, ahy = acceptor_y[j] - hy, ahz = acceptor_z[j] - hz;
+
+        float dotProduct = dhx * ahx + dhy * ahy + dhz * ahz;
+        float mag_dh = sqrtf(dhx * dhx + dhy * dhy + dhz * dhz);
+        float mag_ah = sqrtf(ahx * ahx + ahy * ahy + ahz * ahz);
+        angles[i * numAcceptors + j] = acosf(dotProduct / (mag_dh * mag_ah)) * 180.0f / M_PI;
+    }
+}
+
+    // Funzione wrapper per chiamare il kernel CUDA per il calcolo dei legami a idrogeno
+    extern "C" void launchHydrogenBondKernel(float* d_donor_x, float* d_donor_y, float* d_donor_z,
+                                         float* d_hydrogen_x, float* d_hydrogen_y, float* d_hydrogen_z,
+                                         float* d_acceptor_x, float* d_acceptor_y, float* d_acceptor_z,
+                                         float* d_distances, float* d_angles,
+                                         int numDonors, int numAcceptors, int blockSizeX, int blockSizeY) {
+    // Definisci la dimensione del blocco e della griglia
+    dim3 threadsPerBlock(blockSizeX, blockSizeY);  // Blocchi 2D di thread
+    dim3 blocksPerGrid((numDonors + blockSizeX - 1) / blockSizeX, 
+                       (numAcceptors + blockSizeY - 1) / blockSizeY);  // Griglia 2D di blocchi
+
+    // Lancia il kernel CUDA bidimensionale per il calcolo dei legami a idrogeno
+    calculateHydrogenBondKernel<<<blocksPerGrid, threadsPerBlock>>>(
+        d_donor_x, d_donor_y, d_donor_z,
+        d_hydrogen_x, d_hydrogen_y, d_hydrogen_z,
+        d_acceptor_x, d_acceptor_y, d_acceptor_z,
+        d_distances, d_angles,
+        numDonors, numAcceptors);
+}
+
+

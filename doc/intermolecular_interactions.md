@@ -20,7 +20,7 @@ This is the list of all the intermolecular interactions that we model.
 Besides the SMARTS pattern, more conditions apply.
 The idea of this section is to state all of them.
 
-### Hydrophobic interaction
+### Hydrophobic interaction //check
 
 This interaction occurs between two hydrophobic atoms,i.e. `[hydrophobic] ... [hydrophobic]`.
 The following are the interaction requirements:
