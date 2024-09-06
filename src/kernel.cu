@@ -154,5 +154,100 @@ extern "C" void launchHalogenBondKernel(float* d_donor_x, float* d_donor_y, floa
         numDonors, numAcceptors, maxDistance, minAngle1, maxAngle1, minAngle2, maxAngle2);
 }
 
+__global__ void calculateCationAnionKernel(float* cation_x, float* cation_y, float* cation_z,
+                                           float* anion_x, float* anion_y, float* anion_z,
+                                           float* distances, int numCations, int numAnions, float maxDistance) {
+    int i = blockIdx.x * blockDim.x + threadIdx.x;  // Indice per i cationi
+    int j = blockIdx.y * blockDim.y + threadIdx.y;  // Indice per gli anioni
+
+    if (i < numCations && j < numAnions) {
+        // Calcolo della distanza tra catione e anione
+        float dx = cation_x[i] - anion_x[j];
+        float dy = cation_y[i] - anion_y[j];
+        float dz = cation_z[i] - anion_z[j];
+        float distance = sqrtf(dx * dx + dy * dy + dz * dz);
+
+        // Verifica se la distanza è inferiore alla distanza massima per l'interazione ionica
+        if (distance <= maxDistance) {
+            distances[i * numAnions + j] = distance;
+        } else {
+            distances[i * numAnions + j] = -1.0f;  // Nessuna interazione
+        }
+    }
+}
+
+extern "C" void launchIonicInteractionsKernel_CationAnion(float* d_cation_x, float* d_cation_y, float* d_cation_z,
+                                                          float* d_anion_x, float* d_anion_y, float* d_anion_z,
+                                                          float* d_distances, int numCations, int numAnions, 
+                                                          int blockSizeX, int blockSizeY, float maxDistance) {
+    dim3 threadsPerBlock(blockSizeX, blockSizeY);
+    dim3 blocksPerGrid((numCations + blockSizeX - 1) / blockSizeX, 
+                       (numAnions + blockSizeY - 1) / blockSizeY);
+
+    // Lancia il kernel per Cationi-Anioni
+    calculateCationAnionKernel<<<blocksPerGrid, threadsPerBlock>>>(
+        d_cation_x, d_cation_y, d_cation_z,
+        d_anion_x, d_anion_y, d_anion_z,
+        d_distances, numCations, numAnions, maxDistance);
+}
+
+__global__ void calculateCationRingKernel(float* cation_x, float* cation_y, float* cation_z,
+                                          float* ring_centroid_x, float* ring_centroid_y, float* ring_centroid_z,
+                                          float* ring_normal_x, float* ring_normal_y, float* ring_normal_z,
+                                          float* distances, float* angles, int numCations, int numRings, 
+                                          float maxDistance, float minAngle, float maxAngle) {
+    int i = blockIdx.x * blockDim.x + threadIdx.x;  // Indice per i cationi
+    int j = blockIdx.y * blockDim.y + threadIdx.y;  // Indice per gli anelli aromatici
+
+    if (i < numCations && j < numRings) {
+        // Calcolo della distanza tra catione e il centro dell'anello aromatico
+        float dx = cation_x[i] - ring_centroid_x[j];
+        float dy = cation_y[i] - ring_centroid_y[j];
+        float dz = cation_z[i] - ring_centroid_z[j];
+        float distance = sqrtf(dx * dx + dy * dy + dz * dz);
+
+        // Verifica se la distanza è inferiore alla distanza massima
+        if (distance <= maxDistance) {
+            // Calcolo dell'angolo tra il catione e il vettore normale all'anello
+            float dotProduct = dx * ring_normal_x[j] + dy * ring_normal_y[j] + dz * ring_normal_z[j];
+            float magnitude_cation = sqrtf(dx * dx + dy * dy + dz * dz);
+            float magnitude_normal = sqrtf(ring_normal_x[j] * ring_normal_x[j] +
+                                           ring_normal_y[j] * ring_normal_y[j] +
+                                           ring_normal_z[j] * ring_normal_z[j]);
+            float angle = acosf(dotProduct / (magnitude_cation * magnitude_normal)) * 180.0f / M_PI;
+
+            // Verifica se l'angolo è compreso nell'intervallo richiesto
+            if (angle >= minAngle && angle <= maxAngle) {
+                distances[i * numRings + j] = distance;
+                angles[i * numRings + j] = angle;
+            } else {
+                distances[i * numRings + j] = -1.0f;  // Nessuna interazione
+            }
+        } else {
+            distances[i * numRings + j] = -1.0f;  // Nessuna interazione
+        }
+    }
+}
+
+extern "C" void launchIonicInteractionsKernel_CationRing(float* d_cation_x, float* d_cation_y, float* d_cation_z,
+                                                         float* d_ring_centroid_x, float* d_ring_centroid_y, float* d_ring_centroid_z,
+                                                         float* d_ring_normal_x, float* d_ring_normal_y, float* d_ring_normal_z,
+                                                         float* d_distances, float* d_angles, int numCations, int numRings, 
+                                                         int blockSizeX, int blockSizeY, float maxDistance, float minAngle, float maxAngle) {
+    dim3 threadsPerBlock(blockSizeX, blockSizeY);
+    dim3 blocksPerGrid((numCations + blockSizeX - 1) / blockSizeX, 
+                       (numRings + blockSizeY - 1) / blockSizeY);
+
+    // Lancia il kernel per Cationi-Anelli Aromatici
+    calculateCationRingKernel<<<blocksPerGrid, threadsPerBlock>>>(
+        d_cation_x, d_cation_y, d_cation_z,
+        d_ring_centroid_x, d_ring_centroid_y, d_ring_centroid_z,
+        d_ring_normal_x, d_ring_normal_y, d_ring_normal_z,
+        d_distances, d_angles, numCations, numRings, maxDistance, minAngle, maxAngle);
+}
+
+
+
+
 
 

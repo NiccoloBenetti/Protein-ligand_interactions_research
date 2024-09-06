@@ -24,6 +24,19 @@ void launchHalogenBondKernel(float* d_donor_x, float* d_donor_y, float* d_donor_
                              float maxDistance, float minAngle1, float maxAngle1,
                              float minAngle2, float maxAngle2);
 
+// Dichiarazione del wrapper per il kernel Cationi-Anioni
+void launchIonicInteractionsKernel_CationAnion(float* d_cation_x, float* d_cation_y, float* d_cation_z,
+                                               float* d_anion_x, float* d_anion_y, float* d_anion_z,
+                                               float* d_distances, int numCations, int numAnions, 
+                                               int blockSizeX, int blockSizeY, float maxDistance);
+
+// Dichiarazione del wrapper per il kernel Cationi-Anelli Aromatici
+void launchIonicInteractionsKernel_CationRing(float* d_cation_x, float* d_cation_y, float* d_cation_z,
+                                              float* d_ring_centroid_x, float* d_ring_centroid_y, float* d_ring_centroid_z,
+                                              float* d_ring_normal_x, float* d_ring_normal_y, float* d_ring_normal_z,
+                                              float* d_distances, float* d_angles, int numCations, int numRings, 
+                                              int blockSizeX, int blockSizeY, float maxDistance, float minAngle, float maxAngle);
+
 #ifdef __cplusplus
 }
 #endif

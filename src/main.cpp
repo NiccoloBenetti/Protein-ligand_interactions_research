@@ -449,6 +449,18 @@
                         float maxDistance, float minAngle1, float maxAngle1,
                         float minAngle2, float maxAngle2);
 
+    extern void launchIonicInteractionsKernel_CationAnion(float* d_cation_x, float* d_cation_y, float* d_cation_z,
+                                                          float* d_anion_x, float* d_anion_y, float* d_anion_z,
+                                                          float* d_distances, int numCations, int numAnions, 
+                                                          int blockSizeX, int blockSizeY, float maxDistance);
+
+    extern void launchIonicInteractionsKernel_CationRing(float* d_cation_x, float* d_cation_y, float* d_cation_z,
+                                                         float* d_ring_centroid_x, float* d_ring_centroid_y, float* d_ring_centroid_z,
+                                                         float* d_ring_normal_x, float* d_ring_normal_y, float* d_ring_normal_z,
+                                                         float* d_distances, float* d_angles, int numCations, int numRings, 
+                                                         int blockSizeX, int blockSizeY, float maxDistance, float minAngle, float maxAngle);
+   
+
 
 
 
@@ -806,71 +818,179 @@
 }
 
 
-    void findIonicInteraction(const Molecule& molA, const Molecule& molB, const FoundPatterns& molA_patterns, const FoundPatterns& molB_patterns, const RDKit::Conformer& conformer_molA, const RDKit::Conformer& conformer_molB, const bool protA_ligB, const bool printInteractions){
-        auto tmpA = molA_patterns.patternMatches.find(Pattern::Cation);
-        auto tmpB = molB_patterns.patternMatches.find(Pattern::Anion);
-        unsigned int indx_molA;
-        unsigned int indx_molB;
-        RDGeom::Point3D pos_a, pos_b;
-        float distance;
-        std::string atom_id_molA, atom_id_molB;
+    void findIonicInteraction(const Molecule& molA, const Molecule& molB, const FoundPatterns& molA_patterns, const FoundPatterns& molB_patterns, const RDKit::Conformer& conformer_molA, const RDKit::Conformer& conformer_molB, const bool protA_ligB, const bool printInteractions) {
+    auto tmpA = molA_patterns.patternMatches.find(Pattern::Cation);
+    auto tmpB_anion = molB_patterns.patternMatches.find(Pattern::Anion);
+    auto tmpB_ring = molB_patterns.patternMatches.find(Pattern::Aromatic_ring);
 
-        // Find cation-anion interaction
-        if ((tmpA != molA_patterns.patternMatches.end()) && (tmpB != molB_patterns.patternMatches.end())){
-            for (const auto& matchVectA : tmpA->second){
-                    indx_molA = matchVectA.at(0).second;
-                    pos_a = conformer_molA.getAtomPos(indx_molA);
-                for(const auto& matchVectB : tmpB->second){
-                    indx_molB = matchVectB.at(0).second;
-                    pos_b = conformer_molB.getAtomPos(indx_molB);
-                    distance = calculateDistance(pos_a, pos_b);
+    std::vector<float> cation_x, cation_y, cation_z;
+    std::vector<float> anion_x, anion_y, anion_z;
+    std::vector<float> ring_centroid_x, ring_centroid_y, ring_centroid_z;
+    std::vector<float> ring_normal_x, ring_normal_y, ring_normal_z;
 
-                    if (distance <= DISTANCE_IONIC){
-                        getProtLigAtomID(molA, molB, indx_molA, indx_molB, atom_id_molA, atom_id_molB, protA_ligB);
-                        if(printInteractions)
-                            std::cout << "Ionic\n";
-                        output(molA.name, molB.name, atom_id_molA, "Cation", pos_a.x, pos_a.y, pos_a.z, atom_id_molB, "Anion", pos_b.x, pos_b.y, pos_b.z, "Ionic", distance, protA_ligB);
-                    }
-                }
-            }
+    // Estrai le coordinate dei cationi
+    if (tmpA != molA_patterns.patternMatches.end()) {
+        for (const auto& matchVectA : tmpA->second) {
+            int indx_molA = matchVectA.at(0).second;
+            RDGeom::Point3D pos_a = conformer_molA.getAtomPos(indx_molA);
+            cation_x.push_back(pos_a.x);
+            cation_y.push_back(pos_a.y);
+            cation_z.push_back(pos_a.z);
         }
-        
-        // Find cation-aromatic_ring interaction
-        tmpB = molB_patterns.patternMatches.find(Pattern::Aromatic_ring);
-        if ((tmpA != molA_patterns.patternMatches.end()) && (tmpB != molB_patterns.patternMatches.end())){
-            float angle;
-            float minAngle_required = 30;
-            float maxAngle_required = 150;
-            RDGeom::Point3D centroid, normal, pos_c;
-            std::vector<RDGeom::Point3D> pos_points_ring;
-            for (const auto& matchVectA : tmpA->second){    // Iterats on the Cations patterns
-                    indx_molA = matchVectA.at(0).second;
-                    pos_a = conformer_molA.getAtomPos(indx_molA);
-                for(const auto& matchVectB : tmpB->second){ // Iterats on the Aromatic ring patterns
-                    pos_points_ring.clear();
-                    for(const auto& pairs_molB : matchVectB){   //for every pair <atom in the pattern, atom in the mol>
-                        indx_molB = pairs_molB.second;  // currently is not necessary but it could become when we clarify how AtomIDs shoud work
-                        pos_b = conformer_molB.getAtomPos(indx_molB);
-                        pos_points_ring.push_back(pos_b);   // fils the vector containing the positions in 3D space of the ring atoms
-                    }
-                    centroid = calculateCentroid(pos_points_ring);
-                    distance = calculateDistance(pos_a, centroid);
+    }
 
-                    if (distance <= DISTANCE_IONIC){
-                        normal = calculateNormalVector(pos_points_ring.at(0), pos_points_ring.at(1), pos_points_ring.at(2));    //finds the normal vector to the plane defined by the aromatic ring atoms
-                        pos_c = normal + centroid; // it' a point on the line normal to the ring and passing throw the centroid
-                        angle = calculateAngle(centroid, pos_c, pos_a); // calculates the angle that must be <30 for the Ionic bond requirements
-                        if((!isAngleInRange(angle, MIN_ANGLE_IONIC, MAX_ANGLE_IONIC)) || angle == MIN_ANGLE_IONIC || angle == MAX_ANGLE_IONIC){  //pos_c and pos_a can be on different sides of the aromatic ring plane
-                            getProtLigAtomID(molA, molB, indx_molA, indx_molB, atom_id_molA, atom_id_molB, protA_ligB);
-                             if(printInteractions)
-                                std::cout << "Ionic\n";
-                            output(molA.name, molB.name, atom_id_molA, "Cation", pos_a.x, pos_a.y, pos_a.z, atom_id_molB, "Aromatic_ring", centroid.x, centroid.y, centroid.z, "Ionic", distance, protA_ligB);  // For aromatic ring the name of the last atom in the vector conteining pair <atom of the pattern, atom of the molecule> and the position of the centroid are printed.
-                        }
-                    }
-                }
+    // Estrai le coordinate degli anioni
+    if (tmpB_anion != molB_patterns.patternMatches.end()) {
+        for (const auto& matchVectB : tmpB_anion->second) {
+            int indx_molB = matchVectB.at(0).second;
+            RDGeom::Point3D pos_b = conformer_molB.getAtomPos(indx_molB);
+            anion_x.push_back(pos_b.x);
+            anion_y.push_back(pos_b.y);
+            anion_z.push_back(pos_b.z);
+        }
+    }
+
+    // Estrai le coordinate per i centri degli anelli aromatici e i loro vettori normali
+    if (tmpB_ring != molB_patterns.patternMatches.end()) {
+        for (const auto& matchVectB : tmpB_ring->second) {
+            std::vector<RDGeom::Point3D> pos_points_ring;
+            for (const auto& pairs_molB : matchVectB) {
+                int indx_molB = pairs_molB.second;
+                RDGeom::Point3D pos_b = conformer_molB.getAtomPos(indx_molB);
+                pos_points_ring.push_back(pos_b);
+            }
+
+            RDGeom::Point3D centroid = calculateCentroid(pos_points_ring);
+            RDGeom::Point3D normal = calculateNormalVector(pos_points_ring.at(0), pos_points_ring.at(1), pos_points_ring.at(2));
+
+            ring_centroid_x.push_back(centroid.x);
+            ring_centroid_y.push_back(centroid.y);
+            ring_centroid_z.push_back(centroid.z);
+
+            ring_normal_x.push_back(normal.x);
+            ring_normal_y.push_back(normal.y);
+            ring_normal_z.push_back(normal.z);
+        }
+    }
+
+    // Numero di cationi, anioni e anelli aromatici
+    int numCations = cation_x.size();
+    int numAnions = anion_x.size();
+    int numRings = ring_centroid_x.size();
+
+    // Allocazione memoria GPU
+    float *d_cation_x, *d_cation_y, *d_cation_z;
+    float *d_anion_x, *d_anion_y, *d_anion_z;
+    float *d_ring_centroid_x, *d_ring_centroid_y, *d_ring_centroid_z;
+    float *d_ring_normal_x, *d_ring_normal_y, *d_ring_normal_z;
+    float *d_distances_anion, *d_distances_ring, *d_angles_ring;
+
+    cudaMalloc(&d_cation_x, numCations * sizeof(float));
+    cudaMalloc(&d_cation_y, numCations * sizeof(float));
+    cudaMalloc(&d_cation_z, numCations * sizeof(float));
+    cudaMalloc(&d_anion_x, numAnions * sizeof(float));
+    cudaMalloc(&d_anion_y, numAnions * sizeof(float));
+    cudaMalloc(&d_anion_z, numAnions * sizeof(float));
+    cudaMalloc(&d_ring_centroid_x, numRings * sizeof(float));
+    cudaMalloc(&d_ring_centroid_y, numRings * sizeof(float));
+    cudaMalloc(&d_ring_centroid_z, numRings * sizeof(float));
+    cudaMalloc(&d_ring_normal_x, numRings * sizeof(float));
+    cudaMalloc(&d_ring_normal_y, numRings * sizeof(float));
+    cudaMalloc(&d_ring_normal_z, numRings * sizeof(float));
+    cudaMalloc(&d_distances_anion, numCations * numAnions * sizeof(float));
+    cudaMalloc(&d_distances_ring, numCations * numRings * sizeof(float));
+    cudaMalloc(&d_angles_ring, numCations * numRings * sizeof(float));
+
+    // Copia dei dati sulla GPU
+    cudaMemcpy(d_cation_x, cation_x.data(), numCations * sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_cation_y, cation_y.data(), numCations * sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_cation_z, cation_z.data(), numCations * sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_anion_x, anion_x.data(), numAnions * sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_anion_y, anion_y.data(), numAnions * sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_anion_z, anion_z.data(), numAnions * sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_ring_centroid_x, ring_centroid_x.data(), numRings * sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_ring_centroid_y, ring_centroid_y.data(), numRings * sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_ring_centroid_z, ring_centroid_z.data(), numRings * sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_ring_normal_x, ring_normal_x.data(), numRings * sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_ring_normal_y, ring_normal_y.data(), numRings * sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_ring_normal_z, ring_normal_z.data(), numRings * sizeof(float), cudaMemcpyHostToDevice);
+
+    // Lancia il kernel per il calcolo delle distanze tra cationi e anioni
+    int blockSizeX = 16;
+    int blockSizeY = 16;
+    float maxDistance = 4.0f;
+
+    launchIonicInteractionsKernel_CationAnion(d_cation_x, d_cation_y, d_cation_z,
+                                          d_anion_x, d_anion_y, d_anion_z,
+                                          d_distances_anion, numCations, numAnions,
+                                          blockSizeX, blockSizeY, maxDistance);
+
+
+    // Lancia il kernel per il calcolo delle distanze tra cationi e anelli aromatici
+    launchIonicInteractionsKernel_CationRing(d_cation_x, d_cation_y, d_cation_z,
+                                         d_ring_centroid_x, d_ring_centroid_y, d_ring_centroid_z,
+                                         d_ring_normal_x, d_ring_normal_y, d_ring_normal_z,
+                                         d_distances_ring, d_angles_ring, numCations, numRings,
+                                         blockSizeX, blockSizeY, maxDistance, 30.0f, 150.0f);
+
+
+    // Copia dei risultati dalla GPU alla CPU
+    std::vector<float> distances_anion(numCations * numAnions);
+    std::vector<float> distances_ring(numCations * numRings);
+    std::vector<float> angles_ring(numCations * numRings);
+    cudaMemcpy(distances_anion.data(), d_distances_anion, numCations * numAnions * sizeof(float), cudaMemcpyDeviceToHost);
+    cudaMemcpy(distances_ring.data(), d_distances_ring, numCations * numRings * sizeof(float), cudaMemcpyDeviceToHost);
+    cudaMemcpy(angles_ring.data(), d_angles_ring, numCations * numRings * sizeof(float), cudaMemcpyDeviceToHost);
+
+    // Post-processamento per cationi-anioni
+    for (int i = 0; i < numCations; ++i) {
+        for (int j = 0; j < numAnions; ++j) {
+            float distance = distances_anion[i * numAnions + j];
+            if (distance > 0) {
+                std::string atom_id_molA, atom_id_molB;
+                getProtLigAtomID(molA, molB, i, j, atom_id_molA, atom_id_molB, protA_ligB);
+                if (printInteractions)
+                    std::cout << "Ionic\n";
+                output(molA.name, molB.name, atom_id_molA, "Cation", cation_x[i], cation_y[i], cation_z[i],
+                       atom_id_molB, "Anion", anion_x[j], anion_y[j], anion_z[j], "Ionic", distance, protA_ligB);
             }
         }
     }
+
+    // Post-processamento per cationi-anelli aromatici
+    for (int i = 0; i < numCations; ++i) {
+        for (int j = 0; j < numRings; ++j) {
+            float distance = distances_ring[i * numRings + j];
+            float angle = angles_ring[i * numRings + j];
+            if (distance > 0 && angle > 0) {
+                std::string atom_id_molA, atom_id_molB;
+                getProtLigAtomID(molA, molB, i, j, atom_id_molA, atom_id_molB, protA_ligB);
+                if (printInteractions)
+                    std::cout << "Ionic with aromatic ring\n";
+                output(molA.name, molB.name, atom_id_molA, "Cation", cation_x[i], cation_y[i], cation_z[i],
+                       atom_id_molB, "Aromatic_ring", ring_centroid_x[j], ring_centroid_y[j], ring_centroid_z[j], "Ionic", distance, protA_ligB);
+            }
+        }
+    }
+
+    // Pulizia della memoria GPU
+    cudaFree(d_cation_x);
+    cudaFree(d_cation_y);
+    cudaFree(d_cation_z);
+    cudaFree(d_anion_x);
+    cudaFree(d_anion_y);
+    cudaFree(d_anion_z);
+    cudaFree(d_ring_centroid_x);
+    cudaFree(d_ring_centroid_y);
+    cudaFree(d_ring_centroid_z);
+    cudaFree(d_ring_normal_x);
+    cudaFree(d_ring_normal_y);
+    cudaFree(d_ring_normal_z);
+    cudaFree(d_distances_anion);
+    cudaFree(d_distances_ring);
+    cudaFree(d_angles_ring);
+}
+
 
     //two planes facing each other: SANDWICH | two planes perpendicular: T-SHAPE
     void findPiStacking(const Molecule& molA, const Molecule& molB, const FoundPatterns& molA_patterns, const FoundPatterns& molB_patterns, const RDKit::Conformer& conformer_molA, const RDKit::Conformer& conformer_molB, const bool protA_ligB, const bool printInteractions){
