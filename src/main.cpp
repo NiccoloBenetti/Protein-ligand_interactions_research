@@ -429,6 +429,7 @@
 
 
     // Dichiarazione della funzione wrapper definita in kernel.cu
+
     extern void launchDistanceKernel2D(float* d_posA_x, float* d_posA_y, float* d_posA_z,
                                 float* d_posB_x, float* d_posB_y, float* d_posB_z,
                                 float* d_distances, int numA, int numB, int blockSizeX, int blockSizeY);
@@ -439,7 +440,14 @@
                                          float* d_distances, float* d_angles,
                                          int numDonors, int numAcceptors, int blockSizeX, int blockSizeY);
 
-
+    extern void launchHalogenBondKernel(float* d_donor_x, float* d_donor_y, float* d_donor_z,
+                        float* d_halogen_x, float* d_halogen_y, float* d_halogen_z,
+                        float* d_acceptor_x, float* d_acceptor_y, float* d_acceptor_z,
+                        float* d_any_x, float* d_any_y, float* d_any_z,
+                        float* d_distances, float* d_firstAngles, float* d_secondAngles,
+                        int numDonors, int numAcceptors, int blockSizeX, int blockSizeY,
+                        float maxDistance, float minAngle1, float maxAngle1,
+                        float minAngle2, float maxAngle2);
 
 
 
@@ -655,50 +663,148 @@
 }
 
 
-    void findHalogenBond(const Molecule& molA, const Molecule& molB, const FoundPatterns& molA_patterns, const FoundPatterns& molB_patterns, const RDKit::Conformer& conformer_molA, const RDKit::Conformer& conformer_molB, const bool protA_ligB, const bool printInteractions){
-        auto molA_pattern = molA_patterns.patternMatches.find(Pattern::Halogen_donor_halogen);
-        auto molB_pattern = molB_patterns.patternMatches.find(Pattern::Halogen_acceptor_any);
-        float distance;
-        float distance_required = 3.5;
-        float minAngle_required_first = 130;
-        float maxAngle_required_first = 180;
-        float minAngle_required_second = 80;
-        float maxAngle_required_second = 140;
+    void findHalogenBond(const Molecule& molA, const Molecule& molB, const FoundPatterns& molA_patterns, const FoundPatterns& molB_patterns, const RDKit::Conformer& conformer_molA, const RDKit::Conformer& conformer_molB, const bool protA_ligB, const bool printInteractions) {
+    auto molA_pattern = molA_patterns.patternMatches.find(Pattern::Halogen_donor_halogen);
+    auto molB_pattern = molB_patterns.patternMatches.find(Pattern::Halogen_acceptor_any);
+    
+    float maxDistance = DISTANCE_HALOGENBOND;
+    float minAngle1 = MIN_ANGLE1_HALOGENBOND, maxAngle1 = MAX_ANGLE1_HALOGENBOND;
+    float minAngle2 = MIN_ANGLE2_HALOGENBOND, maxAngle2 = MAX_ANGLE2_HALOGENBOND;
 
-        if ((molA_pattern != molA_patterns.patternMatches.end()) && (molB_pattern != molB_patterns.patternMatches.end())){ // if there are the researched patterns in both the molucles
+    if (molA_pattern != molA_patterns.patternMatches.end() && molB_pattern != molB_patterns.patternMatches.end()) {
+        std::vector<float> donor_x, donor_y, donor_z;
+        std::vector<float> halogen_x, halogen_y, halogen_z;
+        std::vector<float> acceptor_x, acceptor_y, acceptor_z;
+        std::vector<float> any_x, any_y, any_z;
 
-            std::string atom_id_molA, atom_id_molB;
-            RDGeom::Point3D pos_donor, pos_halogen, pos_acceptor, pos_any;
+        // Estrazione delle coordinate da molA (donatori e alogeni)
+        for (const auto& matchVectA : molA_pattern->second) {
+            int id_donor = matchVectA.at(0).second;
+            int id_halogen = matchVectA.at(1).second;
 
-            for(const auto& matchVect_molA : molA_pattern->second){ // for each Halogen_donor-halogen pattern in molA
-                int id_donor = matchVect_molA.at(0).second; // gets the donor id
-                int id_halogen = matchVect_molA.at(1).second; //gets the halogen id
+            RDGeom::Point3D pos_donor = conformer_molA.getAtomPos(id_donor);
+            RDGeom::Point3D pos_halogen = conformer_molA.getAtomPos(id_halogen);
 
-                pos_donor = conformer_molA.getAtomPos(id_donor); // gets the 3D positioning of the donor
-                pos_halogen = conformer_molA.getAtomPos(id_halogen); // gets the 3D positioning of the halogen
+            donor_x.push_back(pos_donor.x);
+            donor_y.push_back(pos_donor.y);
+            donor_z.push_back(pos_donor.z);
 
-                for(const auto& matchVect_molB : molB_pattern->second){ // for each Halogen_donor-halogen pattern in molB
-                    int id_acceptor = matchVect_molB.at(0).second; // gets the acceptor id
-                    int id_any = matchVect_molB.at(1).second; // gets the any id
+            halogen_x.push_back(pos_halogen.x);
+            halogen_y.push_back(pos_halogen.y);
+            halogen_z.push_back(pos_halogen.z);
+        }
 
-                    pos_acceptor = conformer_molB.getAtomPos(id_acceptor); // gets the 3D positioning of the acceptor
-                    pos_any = conformer_molB.getAtomPos(id_any); // gets the 3D positioning of the any
+        // Estrazione delle coordinate da molB (accettori e atomi generici)
+        for (const auto& matchVectB : molB_pattern->second) {
+            int id_acceptor = matchVectB.at(0).second;
+            int id_any = matchVectB.at(1).second;
 
-                    distance = calculateDistance(pos_donor, pos_acceptor); //finds the distance between donor and acceptor
-                    float firstAngle = calculateAngle(pos_halogen, pos_donor, pos_acceptor); //finds the angle between the donor-halogen atoms and the halogen-acceptor atoms
-                    float secondAngle = calculateAngle(pos_acceptor, pos_halogen, pos_any); //the angle between the halogen-acceptor atoms and the acceptor-any atoms
+            RDGeom::Point3D pos_acceptor = conformer_molB.getAtomPos(id_acceptor);
+            RDGeom::Point3D pos_any = conformer_molB.getAtomPos(id_any);
 
-                    if(distance <= DISTANCE_HALOGENBOND && isAngleInRange(firstAngle, MIN_ANGLE1_HALOGENBOND, MAX_ANGLE1_HALOGENBOND) && isAngleInRange(secondAngle, MIN_ANGLE2_HALOGENBOND, MAX_ANGLE2_HALOGENBOND)){
-                        getProtLigAtomID(molA, molB, id_halogen, id_acceptor, atom_id_molA, atom_id_molB, protA_ligB);
-                        if(printInteractions)
-                            std::cout << "Halogen bond\n";
-                        output(molA.name, molB.name, atom_id_molA, "Halogen donor", pos_halogen.x, pos_halogen.y, pos_halogen.z, atom_id_molB, "Halogen acceptor", pos_acceptor.x, pos_acceptor.y, pos_acceptor.z, "Halogen Bond", distance, protA_ligB);
-                    }
-            
+            acceptor_x.push_back(pos_acceptor.x);
+            acceptor_y.push_back(pos_acceptor.y);
+            acceptor_z.push_back(pos_acceptor.z);
+
+            any_x.push_back(pos_any.x);
+            any_y.push_back(pos_any.y);
+            any_z.push_back(pos_any.z);
+        }
+
+        // Numero di donatori e accettori
+        int numDonors = donor_x.size();
+        int numAcceptors = acceptor_x.size();
+
+        // Allocazione memoria GPU
+        float *d_donor_x, *d_donor_y, *d_donor_z;
+        float *d_halogen_x, *d_halogen_y, *d_halogen_z;
+        float *d_acceptor_x, *d_acceptor_y, *d_acceptor_z;
+        float *d_any_x, *d_any_y, *d_any_z;
+        float *d_distances, *d_firstAngles, *d_secondAngles;
+
+        cudaMalloc(&d_donor_x, numDonors * sizeof(float));
+        cudaMalloc(&d_donor_y, numDonors * sizeof(float));
+        cudaMalloc(&d_donor_z, numDonors * sizeof(float));
+        cudaMalloc(&d_halogen_x, numDonors * sizeof(float));
+        cudaMalloc(&d_halogen_y, numDonors * sizeof(float));
+        cudaMalloc(&d_halogen_z, numDonors * sizeof(float));
+        cudaMalloc(&d_acceptor_x, numAcceptors * sizeof(float));
+        cudaMalloc(&d_acceptor_y, numAcceptors * sizeof(float));
+        cudaMalloc(&d_acceptor_z, numAcceptors * sizeof(float));
+        cudaMalloc(&d_any_x, numAcceptors * sizeof(float));
+        cudaMalloc(&d_any_y, numAcceptors * sizeof(float));
+        cudaMalloc(&d_any_z, numAcceptors * sizeof(float));
+        cudaMalloc(&d_distances, numDonors * numAcceptors * sizeof(float));
+        cudaMalloc(&d_firstAngles, numDonors * numAcceptors * sizeof(float));
+        cudaMalloc(&d_secondAngles, numDonors * numAcceptors * sizeof(float));
+
+        // Copia i dati sulla GPU
+        cudaMemcpy(d_donor_x, donor_x.data(), numDonors * sizeof(float), cudaMemcpyHostToDevice);
+        cudaMemcpy(d_donor_y, donor_y.data(), numDonors * sizeof(float), cudaMemcpyHostToDevice);
+        cudaMemcpy(d_donor_z, donor_z.data(), numDonors * sizeof(float), cudaMemcpyHostToDevice);
+        cudaMemcpy(d_halogen_x, halogen_x.data(), numDonors * sizeof(float), cudaMemcpyHostToDevice);
+        cudaMemcpy(d_halogen_y, halogen_y.data(), numDonors * sizeof(float), cudaMemcpyHostToDevice);
+        cudaMemcpy(d_halogen_z, halogen_z.data(), numDonors * sizeof(float), cudaMemcpyHostToDevice);
+        cudaMemcpy(d_acceptor_x, acceptor_x.data(), numAcceptors * sizeof(float), cudaMemcpyHostToDevice);
+        cudaMemcpy(d_acceptor_y, acceptor_y.data(), numAcceptors * sizeof(float), cudaMemcpyHostToDevice);
+        cudaMemcpy(d_acceptor_z, acceptor_z.data(), numAcceptors * sizeof(float), cudaMemcpyHostToDevice);
+        cudaMemcpy(d_any_x, any_x.data(), numAcceptors * sizeof(float), cudaMemcpyHostToDevice);
+        cudaMemcpy(d_any_y, any_y.data(), numAcceptors * sizeof(float), cudaMemcpyHostToDevice);
+        cudaMemcpy(d_any_z, any_z.data(), numAcceptors * sizeof(float), cudaMemcpyHostToDevice);
+
+        // Lancia il kernel CUDA per calcolare distanze e angoli
+        int blockSizeX = 16;
+        int blockSizeY = 16;
+        launchHalogenBondKernel(d_donor_x, d_donor_y, d_donor_z,
+                                d_halogen_x, d_halogen_y, d_halogen_z,
+                                d_acceptor_x, d_acceptor_y, d_acceptor_z,
+                                d_any_x, d_any_y, d_any_z,
+                                d_distances, d_firstAngles, d_secondAngles,
+                                numDonors, numAcceptors, blockSizeX, blockSizeY,
+                                maxDistance, minAngle1, maxAngle1, minAngle2, maxAngle2);
+
+        // Copia dei risultati dalla GPU alla CPU
+        std::vector<float> distances(numDonors * numAcceptors);
+        std::vector<float> firstAngles(numDonors * numAcceptors);
+        std::vector<float> secondAngles(numDonors * numAcceptors);
+        cudaMemcpy(distances.data(), d_distances, numDonors * numAcceptors * sizeof(float), cudaMemcpyDeviceToHost);
+        cudaMemcpy(firstAngles.data(), d_firstAngles, numDonors * numAcceptors * sizeof(float), cudaMemcpyDeviceToHost);
+        cudaMemcpy(secondAngles.data(), d_secondAngles, numDonors * numAcceptors * sizeof(float), cudaMemcpyDeviceToHost);
+
+        // Post-processamento sulla CPU per verificare le interazioni e stampare i risultati
+        for (int i = 0; i < numDonors; ++i) {
+            for (int j = 0; j < numAcceptors; ++j) {
+                if (distances[i * numAcceptors + j] > 0) {  // Solo interazioni valide (distanze positive)
+                    std::string atom_id_molA, atom_id_molB;
+                    getProtLigAtomID(molA, molB, i, j, atom_id_molA, atom_id_molB, protA_ligB);
+                    if (printInteractions)
+                        std::cout << "Halogen bond\n";
+                    output(molA.name, molB.name, atom_id_molA, "Halogen donor", halogen_x[i], halogen_y[i], halogen_z[i],
+                           atom_id_molB, "Halogen acceptor", acceptor_x[j], acceptor_y[j], acceptor_z[j],
+                           "Halogen Bond", distances[i * numAcceptors + j], protA_ligB);
                 }
             }
         }
+
+        // Pulizia della memoria GPU
+        cudaFree(d_donor_x);
+        cudaFree(d_donor_y);
+        cudaFree(d_donor_z);
+        cudaFree(d_halogen_x);
+        cudaFree(d_halogen_y);
+        cudaFree(d_halogen_z);
+        cudaFree(d_acceptor_x);
+        cudaFree(d_acceptor_y);
+        cudaFree(d_acceptor_z);
+        cudaFree(d_any_x);
+        cudaFree(d_any_y);
+        cudaFree(d_any_z);
+        cudaFree(d_distances);
+        cudaFree(d_firstAngles);
+        cudaFree(d_secondAngles);
     }
+}
+
 
     void findIonicInteraction(const Molecule& molA, const Molecule& molB, const FoundPatterns& molA_patterns, const FoundPatterns& molB_patterns, const RDKit::Conformer& conformer_molA, const RDKit::Conformer& conformer_molB, const bool protA_ligB, const bool printInteractions){
         auto tmpA = molA_patterns.patternMatches.find(Pattern::Cation);

@@ -34,7 +34,7 @@ The following are the interaction requirements:
 1. the atom-atom distance between donor and acceptor must be lower or equal than 3.5 Angstrom
 2. the angle between the donor-hydrogen atoms and the hydrogen-acceptor atoms must be between 130 and 180 degree.
 
-### Halogen bond 
+### Halogen bond //CHECK
 
 This interaction is similar to the hydrogen bond, with the difference that the shared atom is an halogen, i.e. `[halogen_donor]-[halogen] ... [halogen_acceptor]-[any]`.
 The following are the interaction requirements:
@@ -68,7 +68,7 @@ The following are the interaction requirements between two aromatic rings when t
 3. the angle between the normal to the plane and a centroid must be between 0 and 30 degrees
 4. the centroid of the perpendicular ring falls within the other molecule ring
 
-### Metal
+### Metal //check
 
 This interaction is between a metal atom and a chelated atom, i.e. `[metal] ... [chelated]`.
 The following are the interaction requirements:

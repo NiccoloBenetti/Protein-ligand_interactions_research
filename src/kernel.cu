@@ -80,4 +80,79 @@ __global__ void calculateHydrogenBondKernel(float* donor_x, float* donor_y, floa
         numDonors, numAcceptors);
 }
 
+__global__ void calculateHalogenBondKernel(float* donor_x, float* donor_y, float* donor_z,
+                                           float* halogen_x, float* halogen_y, float* halogen_z,
+                                           float* acceptor_x, float* acceptor_y, float* acceptor_z,
+                                           float* any_x, float* any_y, float* any_z,
+                                           float* distances, float* firstAngles, float* secondAngles,
+                                           int numDonors, int numAcceptors, float maxDistance,
+                                           float minAngle1, float maxAngle1, float minAngle2, float maxAngle2) {
+    int i = blockIdx.x * blockDim.x + threadIdx.x;  // Indice per i donatori
+    int j = blockIdx.y * blockDim.y + threadIdx.y;  // Indice per gli accettori
+
+    if (i < numDonors && j < numAcceptors) {
+        // Calcolo della distanza euclidea tra il donatore e l'accettore
+        float dx = donor_x[i] - acceptor_x[j];
+        float dy = donor_y[i] - acceptor_y[j];
+        float dz = donor_z[i] - acceptor_z[j];
+        float distance = sqrtf(dx * dx + dy * dy + dz * dz);
+
+        // Calcolo degli angoli
+        float hx = halogen_x[i], hy = halogen_y[i], hz = halogen_z[i];
+        float ax = acceptor_x[j], ay = acceptor_y[j], az = acceptor_z[j];
+        float anyx = any_x[j], anyy = any_y[j], anyz = any_z[j];
+
+        // Primo angolo: tra donatore, alogeno e accettore
+        float dhx = donor_x[i] - hx, dhy = donor_y[i] - hy, dhz = donor_z[i] - hz;
+        float ahx = ax - hx, ahy = ay - hy, ahz = az - hz;
+        float dotProduct1 = dhx * ahx + dhy * ahy + dhz * ahz;
+        float mag_dh = sqrtf(dhx * dhx + dhy * dhy + dhz * dhz);
+        float mag_ah = sqrtf(ahx * ahx + ahy * ahy + ahz * ahz);
+        float firstAngle = acosf(dotProduct1 / (mag_dh * mag_ah)) * 180.0f / M_PI;
+
+        // Secondo angolo: tra accettore, alogeno e "any"
+        float ahhx = ax - hx, ahhy = ay - hy, ahhz = az - hz;
+        float aax = anyx - ax, aay = anyy - ay, aaz = anyz - az;
+        float dotProduct2 = ahhx * aax + ahhy * aay + ahhz * aaz;
+        float mag_ahh = sqrtf(ahhx * ahhx + ahhy * ahhy + ahhz * ahhz);
+        float mag_aa = sqrtf(aax * aax + aay * aay + aaz * aaz);
+        float secondAngle = acosf(dotProduct2 / (mag_ahh * mag_aa)) * 180.0f / M_PI;
+
+        // Salva le distanze e gli angoli solo se soddisfano i criteri
+        if (distance <= maxDistance && firstAngle >= minAngle1 && firstAngle <= maxAngle1 && 
+            secondAngle >= minAngle2 && secondAngle <= maxAngle2) {
+            distances[i * numAcceptors + j] = distance;
+            firstAngles[i * numAcceptors + j] = firstAngle;
+            secondAngles[i * numAcceptors + j] = secondAngle;
+        } else {
+            distances[i * numAcceptors + j] = -1.0f;  // Usa un valore negativo per indicare nessuna interazione
+        }
+    }
+}
+
+
+extern "C" void launchHalogenBondKernel(float* d_donor_x, float* d_donor_y, float* d_donor_z,
+                                        float* d_halogen_x, float* d_halogen_y, float* d_halogen_z,
+                                        float* d_acceptor_x, float* d_acceptor_y, float* d_acceptor_z,
+                                        float* d_any_x, float* d_any_y, float* d_any_z,
+                                        float* d_distances, float* d_firstAngles, float* d_secondAngles,
+                                        int numDonors, int numAcceptors, int blockSizeX, int blockSizeY,
+                                        float maxDistance, float minAngle1, float maxAngle1,
+                                        float minAngle2, float maxAngle2) {
+    // Definisci la dimensione dei blocchi e della griglia
+    dim3 threadsPerBlock(blockSizeX, blockSizeY);
+    dim3 blocksPerGrid((numDonors + blockSizeX - 1) / blockSizeX, 
+                       (numAcceptors + blockSizeY - 1) / blockSizeY);
+
+    // Lancia il kernel per il calcolo dei legami di alogeni
+    calculateHalogenBondKernel<<<blocksPerGrid, threadsPerBlock>>>(
+        d_donor_x, d_donor_y, d_donor_z,
+        d_halogen_x, d_halogen_y, d_halogen_z,
+        d_acceptor_x, d_acceptor_y, d_acceptor_z,
+        d_any_x, d_any_y, d_any_z,
+        d_distances, d_firstAngles, d_secondAngles,
+        numDonors, numAcceptors, maxDistance, minAngle1, maxAngle1, minAngle2, maxAngle2);
+}
+
+
 
