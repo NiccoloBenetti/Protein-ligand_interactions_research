@@ -1,6 +1,8 @@
 #include <cuda_runtime.h>
 #include <cmath>
 
+// ---------------------------------------------------------------------------------------------- LAUNCHERS ------------------------------------------------------------------------------------------------------------
+
 // Kernel CUDA bidimensionale per calcolare le distanze tra atomi
  __global__ void calculateDistancesKernel2D(float* posA_x, float* posA_y, float* posA_z,
                                            float* posB_x, float* posB_y, float* posB_z,
@@ -17,21 +19,6 @@
         float dz = posA_z[i] - posB_z[j];
         distances[i * numB + j] = sqrtf(dx * dx + dy * dy + dz * dz);
     }
-}
-
-// Funzione wrapper per chiamare il kernel CUDA bidimensionale
-extern "C" void launchDistanceKernel2D(float* d_posA_x, float* d_posA_y, float* d_posA_z,
-                                       float* d_posB_x, float* d_posB_y, float* d_posB_z,
-                                       float* d_distances, int numA, int numB, int blockSizeX, int blockSizeY) {
-    // Definisci la dimensione del blocco e della griglia
-    dim3 threadsPerBlock(blockSizeX, blockSizeY);  // Blocchi 2D di thread
-    dim3 blocksPerGrid((numA + blockSizeX - 1) / blockSizeX, 
-                       (numB + blockSizeY - 1) / blockSizeY);  // Griglia 2D di blocchi
-
-    // Lancia il kernel CUDA bidimensionale
-    calculateDistancesKernel2D<<<blocksPerGrid, threadsPerBlock>>>(d_posA_x, d_posA_y, d_posA_z,
-                                                                   d_posB_x, d_posB_y, d_posB_z,
-                                                                   d_distances, numA, numB);
 }
 
 __global__ void calculateHydrogenBondKernel(float* donor_x, float* donor_y, float* donor_z,
@@ -58,26 +45,6 @@ __global__ void calculateHydrogenBondKernel(float* donor_x, float* donor_y, floa
         float mag_ah = sqrtf(ahx * ahx + ahy * ahy + ahz * ahz);
         angles[i * numAcceptors + j] = acosf(dotProduct / (mag_dh * mag_ah)) * 180.0f / M_PI;
     }
-}
-
-    // Funzione wrapper per chiamare il kernel CUDA per il calcolo dei legami a idrogeno
-    extern "C" void launchHydrogenBondKernel(float* d_donor_x, float* d_donor_y, float* d_donor_z,
-                                         float* d_hydrogen_x, float* d_hydrogen_y, float* d_hydrogen_z,
-                                         float* d_acceptor_x, float* d_acceptor_y, float* d_acceptor_z,
-                                         float* d_distances, float* d_angles,
-                                         int numDonors, int numAcceptors, int blockSizeX, int blockSizeY) {
-    // Definisci la dimensione del blocco e della griglia
-    dim3 threadsPerBlock(blockSizeX, blockSizeY);  // Blocchi 2D di thread
-    dim3 blocksPerGrid((numDonors + blockSizeX - 1) / blockSizeX, 
-                       (numAcceptors + blockSizeY - 1) / blockSizeY);  // Griglia 2D di blocchi
-
-    // Lancia il kernel CUDA bidimensionale per il calcolo dei legami a idrogeno
-    calculateHydrogenBondKernel<<<blocksPerGrid, threadsPerBlock>>>(
-        d_donor_x, d_donor_y, d_donor_z,
-        d_hydrogen_x, d_hydrogen_y, d_hydrogen_z,
-        d_acceptor_x, d_acceptor_y, d_acceptor_z,
-        d_distances, d_angles,
-        numDonors, numAcceptors);
 }
 
 __global__ void calculateHalogenBondKernel(float* donor_x, float* donor_y, float* donor_z,
@@ -130,30 +97,6 @@ __global__ void calculateHalogenBondKernel(float* donor_x, float* donor_y, float
     }
 }
 
-
-extern "C" void launchHalogenBondKernel(float* d_donor_x, float* d_donor_y, float* d_donor_z,
-                                        float* d_halogen_x, float* d_halogen_y, float* d_halogen_z,
-                                        float* d_acceptor_x, float* d_acceptor_y, float* d_acceptor_z,
-                                        float* d_any_x, float* d_any_y, float* d_any_z,
-                                        float* d_distances, float* d_firstAngles, float* d_secondAngles,
-                                        int numDonors, int numAcceptors, int blockSizeX, int blockSizeY,
-                                        float maxDistance, float minAngle1, float maxAngle1,
-                                        float minAngle2, float maxAngle2) {
-    // Definisci la dimensione dei blocchi e della griglia
-    dim3 threadsPerBlock(blockSizeX, blockSizeY);
-    dim3 blocksPerGrid((numDonors + blockSizeX - 1) / blockSizeX, 
-                       (numAcceptors + blockSizeY - 1) / blockSizeY);
-
-    // Lancia il kernel per il calcolo dei legami di alogeni
-    calculateHalogenBondKernel<<<blocksPerGrid, threadsPerBlock>>>(
-        d_donor_x, d_donor_y, d_donor_z,
-        d_halogen_x, d_halogen_y, d_halogen_z,
-        d_acceptor_x, d_acceptor_y, d_acceptor_z,
-        d_any_x, d_any_y, d_any_z,
-        d_distances, d_firstAngles, d_secondAngles,
-        numDonors, numAcceptors, maxDistance, minAngle1, maxAngle1, minAngle2, maxAngle2);
-}
-
 __global__ void calculateCationAnionKernel(float* cation_x, float* cation_y, float* cation_z,
                                            float* anion_x, float* anion_y, float* anion_z,
                                            float* distances, int numCations, int numAnions, float maxDistance) {
@@ -174,21 +117,6 @@ __global__ void calculateCationAnionKernel(float* cation_x, float* cation_y, flo
             distances[i * numAnions + j] = -1.0f;  // Nessuna interazione
         }
     }
-}
-
-extern "C" void launchIonicInteractionsKernel_CationAnion(float* d_cation_x, float* d_cation_y, float* d_cation_z,
-                                                          float* d_anion_x, float* d_anion_y, float* d_anion_z,
-                                                          float* d_distances, int numCations, int numAnions, 
-                                                          int blockSizeX, int blockSizeY, float maxDistance) {
-    dim3 threadsPerBlock(blockSizeX, blockSizeY);
-    dim3 blocksPerGrid((numCations + blockSizeX - 1) / blockSizeX, 
-                       (numAnions + blockSizeY - 1) / blockSizeY);
-
-    // Lancia il kernel per Cationi-Anioni
-    calculateCationAnionKernel<<<blocksPerGrid, threadsPerBlock>>>(
-        d_cation_x, d_cation_y, d_cation_z,
-        d_anion_x, d_anion_y, d_anion_z,
-        d_distances, numCations, numAnions, maxDistance);
 }
 
 __global__ void calculateCationRingKernel(float* cation_x, float* cation_y, float* cation_z,
@@ -227,6 +155,83 @@ __global__ void calculateCationRingKernel(float* cation_x, float* cation_y, floa
             distances[i * numRings + j] = -1.0f;  // Nessuna interazione
         }
     }
+}
+
+// ---------------------------------------------------------------------------------------------- LAUNCHERS ------------------------------------------------------------------------------------------------------------
+
+
+// Funzione wrapper per chiamare il kernel CUDA bidimensionale
+extern "C" void launchDistanceKernel2D(float* d_posA_x, float* d_posA_y, float* d_posA_z,
+                                       float* d_posB_x, float* d_posB_y, float* d_posB_z,
+                                       float* d_distances, int numA, int numB, int blockSizeX, int blockSizeY) {
+    // Definisci la dimensione del blocco e della griglia
+    dim3 threadsPerBlock(blockSizeX, blockSizeY);  // Blocchi 2D di thread
+    dim3 blocksPerGrid((numA + blockSizeX - 1) / blockSizeX, 
+                       (numB + blockSizeY - 1) / blockSizeY);  // Griglia 2D di blocchi
+
+    // Lancia il kernel CUDA bidimensionale
+    calculateDistancesKernel2D<<<blocksPerGrid, threadsPerBlock>>>(d_posA_x, d_posA_y, d_posA_z,
+                                                                   d_posB_x, d_posB_y, d_posB_z,
+                                                                   d_distances, numA, numB);
+}
+
+
+// Funzione wrapper per chiamare il kernel CUDA per il calcolo dei legami a idrogeno
+extern "C" void launchHydrogenBondKernel(float* d_donor_x, float* d_donor_y, float* d_donor_z,
+                                        float* d_hydrogen_x, float* d_hydrogen_y, float* d_hydrogen_z,
+                                        float* d_acceptor_x, float* d_acceptor_y, float* d_acceptor_z,
+                                        float* d_distances, float* d_angles,
+                                        int numDonors, int numAcceptors, int blockSizeX, int blockSizeY) {
+    // Definisci la dimensione del blocco e della griglia
+    dim3 threadsPerBlock(blockSizeX, blockSizeY);  // Blocchi 2D di thread
+    dim3 blocksPerGrid((numDonors + blockSizeX - 1) / blockSizeX, 
+                        (numAcceptors + blockSizeY - 1) / blockSizeY);  // Griglia 2D di blocchi
+
+    // Lancia il kernel CUDA bidimensionale per il calcolo dei legami a idrogeno
+    calculateHydrogenBondKernel<<<blocksPerGrid, threadsPerBlock>>>(
+        d_donor_x, d_donor_y, d_donor_z,
+        d_hydrogen_x, d_hydrogen_y, d_hydrogen_z,
+        d_acceptor_x, d_acceptor_y, d_acceptor_z,
+        d_distances, d_angles,
+        numDonors, numAcceptors);
+}
+
+extern "C" void launchHalogenBondKernel(float* d_donor_x, float* d_donor_y, float* d_donor_z,
+                                        float* d_halogen_x, float* d_halogen_y, float* d_halogen_z,
+                                        float* d_acceptor_x, float* d_acceptor_y, float* d_acceptor_z,
+                                        float* d_any_x, float* d_any_y, float* d_any_z,
+                                        float* d_distances, float* d_firstAngles, float* d_secondAngles,
+                                        int numDonors, int numAcceptors, int blockSizeX, int blockSizeY,
+                                        float maxDistance, float minAngle1, float maxAngle1,
+                                        float minAngle2, float maxAngle2) {
+    // Definisci la dimensione dei blocchi e della griglia
+    dim3 threadsPerBlock(blockSizeX, blockSizeY);
+    dim3 blocksPerGrid((numDonors + blockSizeX - 1) / blockSizeX, 
+                       (numAcceptors + blockSizeY - 1) / blockSizeY);
+
+    // Lancia il kernel per il calcolo dei legami di alogeni
+    calculateHalogenBondKernel<<<blocksPerGrid, threadsPerBlock>>>(
+        d_donor_x, d_donor_y, d_donor_z,
+        d_halogen_x, d_halogen_y, d_halogen_z,
+        d_acceptor_x, d_acceptor_y, d_acceptor_z,
+        d_any_x, d_any_y, d_any_z,
+        d_distances, d_firstAngles, d_secondAngles,
+        numDonors, numAcceptors, maxDistance, minAngle1, maxAngle1, minAngle2, maxAngle2);
+}
+
+extern "C" void launchIonicInteractionsKernel_CationAnion(float* d_cation_x, float* d_cation_y, float* d_cation_z,
+                                                          float* d_anion_x, float* d_anion_y, float* d_anion_z,
+                                                          float* d_distances, int numCations, int numAnions, 
+                                                          int blockSizeX, int blockSizeY, float maxDistance) {
+    dim3 threadsPerBlock(blockSizeX, blockSizeY);
+    dim3 blocksPerGrid((numCations + blockSizeX - 1) / blockSizeX, 
+                       (numAnions + blockSizeY - 1) / blockSizeY);
+
+    // Lancia il kernel per Cationi-Anioni
+    calculateCationAnionKernel<<<blocksPerGrid, threadsPerBlock>>>(
+        d_cation_x, d_cation_y, d_cation_z,
+        d_anion_x, d_anion_y, d_anion_z,
+        d_distances, numCations, numAnions, maxDistance);
 }
 
 extern "C" void launchIonicInteractionsKernel_CationRing(float* d_cation_x, float* d_cation_y, float* d_cation_z,
