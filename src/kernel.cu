@@ -163,17 +163,18 @@ __global__ void calculateCationRingKernel(float* cation_x, float* cation_y, floa
 // Funzione wrapper per chiamare il kernel CUDA bidimensionale
 extern "C" void launchDistanceKernel2D(float* d_posA_x, float* d_posA_y, float* d_posA_z,
                                        float* d_posB_x, float* d_posB_y, float* d_posB_z,
-                                       float* d_distances, int numA, int numB, int blockSizeX, int blockSizeY) {
+                                       float* d_distances, int numA, int numB, int blockSizeX, int blockSizeY, cudaStream_t stream) {
     // Definisci la dimensione del blocco e della griglia
     dim3 threadsPerBlock(blockSizeX, blockSizeY);  // Blocchi 2D di thread
     dim3 blocksPerGrid((numA + blockSizeX - 1) / blockSizeX, 
                        (numB + blockSizeY - 1) / blockSizeY);  // Griglia 2D di blocchi
 
-    // Lancia il kernel CUDA bidimensionale
-    calculateDistancesKernel2D<<<blocksPerGrid, threadsPerBlock>>>(d_posA_x, d_posA_y, d_posA_z,
-                                                                   d_posB_x, d_posB_y, d_posB_z,
-                                                                   d_distances, numA, numB);
+    // Lancia il kernel CUDA bidimensionale nel stream specificato
+    calculateDistancesKernel2D<<<blocksPerGrid, threadsPerBlock, 0, stream>>>(d_posA_x, d_posA_y, d_posA_z,
+                                                                             d_posB_x, d_posB_y, d_posB_z,
+                                                                             d_distances, numA, numB);
 }
+
 
 
 // Funzione wrapper per chiamare il kernel CUDA per il calcolo dei legami a idrogeno

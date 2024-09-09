@@ -2,10 +2,10 @@
 extern "C" {
 #endif
 
-// Dichiarazione di launchDistanceKernel2D
+// Dichiarazione di launchDistanceKernel2D con il parametro stream
 void launchDistanceKernel2D(float* d_posA_x, float* d_posA_y, float* d_posA_z,
                             float* d_posB_x, float* d_posB_y, float* d_posB_z,
-                            float* d_distances, int numA, int numB, int blockSizeX, int blockSizeY);
+                            float* d_distances, int numA, int numB, int blockSizeX, int blockSizeY, cudaStream_t stream);
 
 // Dichiarazione di launchHydrogenBondKernel
 void launchHydrogenBondKernel(float* d_donor_x, float* d_donor_y, float* d_donor_z,
