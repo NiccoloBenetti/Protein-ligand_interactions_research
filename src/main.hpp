@@ -14,7 +14,7 @@ void launchHydrogenBondKernel(float* d_donor_x, float* d_donor_y, float* d_donor
                               float* d_distances, float* d_angles,
                               int numDonors, int numAcceptors, int blockSizeX, int blockSizeY);
 
-// Dichiarazione di launchHalogenBondKernel
+// Dichiarazione di launchHalogenBondKernel con il parametro stream
 void launchHalogenBondKernel(float* d_donor_x, float* d_donor_y, float* d_donor_z,
                              float* d_halogen_x, float* d_halogen_y, float* d_halogen_z,
                              float* d_acceptor_x, float* d_acceptor_y, float* d_acceptor_z,
@@ -22,7 +22,8 @@ void launchHalogenBondKernel(float* d_donor_x, float* d_donor_y, float* d_donor_
                              float* d_distances, float* d_firstAngles, float* d_secondAngles,
                              int numDonors, int numAcceptors, int blockSizeX, int blockSizeY,
                              float maxDistance, float minAngle1, float maxAngle1,
-                             float minAngle2, float maxAngle2);
+                             float minAngle2, float maxAngle2, cudaStream_t stream);
+
 
 // Dichiarazione del wrapper per il kernel Cationi-Anioni
 void launchIonicInteractionsKernel_CationAnion(float* d_cation_x, float* d_cation_y, float* d_cation_z,

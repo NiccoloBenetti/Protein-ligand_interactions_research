@@ -204,14 +204,14 @@ extern "C" void launchHalogenBondKernel(float* d_donor_x, float* d_donor_y, floa
                                         float* d_distances, float* d_firstAngles, float* d_secondAngles,
                                         int numDonors, int numAcceptors, int blockSizeX, int blockSizeY,
                                         float maxDistance, float minAngle1, float maxAngle1,
-                                        float minAngle2, float maxAngle2) {
+                                        float minAngle2, float maxAngle2, cudaStream_t stream) {
     // Definisci la dimensione dei blocchi e della griglia
     dim3 threadsPerBlock(blockSizeX, blockSizeY);
     dim3 blocksPerGrid((numDonors + blockSizeX - 1) / blockSizeX, 
                        (numAcceptors + blockSizeY - 1) / blockSizeY);
 
-    // Lancia il kernel per il calcolo dei legami di alogeni
-    calculateHalogenBondKernel<<<blocksPerGrid, threadsPerBlock>>>(
+    // Lancia il kernel per il calcolo dei legami di alogeni nel stream specificato
+    calculateHalogenBondKernel<<<blocksPerGrid, threadsPerBlock, 0, stream>>>(
         d_donor_x, d_donor_y, d_donor_z,
         d_halogen_x, d_halogen_y, d_halogen_z,
         d_acceptor_x, d_acceptor_y, d_acceptor_z,
