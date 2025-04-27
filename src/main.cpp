@@ -54,6 +54,9 @@
 #define MIN_NORMAL_CENTROID_ANGLE_TSHAPE 0
 #define MAX_NORMAL_CENTROID_ANGLE_TSHAPE 30
 
+// METAL COORDINATION
+#define DISTANCE_METAL 2.8
+
 enum class Pattern {
     Hydrophobic,
     Hydrogen_donor_H,
@@ -320,7 +323,7 @@ bool doSegmentsIntersect(RDGeom::Point3D &a1, RDGeom::Point3D &b1, RDGeom::Point
     RDGeom::Point3D b1b2 = b1 - b2;
     RDGeom::Point3D a1b1 = a1 - b1;
 
-    double a =  a1a2.x, b = -b1b2.x, c = a1a2.y, d = -b1b2.y, e = a1a2.z, f = -b1b2.z; //fill the coeficients in the matrix rapresenting the equations
+    double a =  a1a2.x, b = -b1b2.x, c = a1a2.y, d = -b1b2.y; // e = a1a2.z, f = -b1b2.z; //fill the coeficients in the matrix rapresenting the equations
     double det = a * d - b * c; //calculates the det of the matrix to check if there are solutions
 
     if(fabs(det) < 1e-10) return false; //checks if the det = 0 it means that there are no solutions the segments are or parallel or the same segment
@@ -486,11 +489,6 @@ void findHalogenBond(const Molecule& molA, const Molecule& molB, const FoundPatt
     auto molA_pattern = molA_patterns.patternMatches.find(Pattern::Halogen_donor_halogen);
     auto molB_pattern = molB_patterns.patternMatches.find(Pattern::Halogen_acceptor_any);
     float distance;
-    float distance_required = 3.5;
-    float minAngle_required_first = 130;
-    float maxAngle_required_first = 180;
-    float minAngle_required_second = 80;
-    float maxAngle_required_second = 140;
 
     if ((molA_pattern != molA_patterns.patternMatches.end()) && (molB_pattern != molB_patterns.patternMatches.end())){ // if there are the researched patterns in both the molucles
 
@@ -558,8 +556,6 @@ void findIonicInteraction(const Molecule& molA, const Molecule& molB, const Foun
     tmpB = molB_patterns.patternMatches.find(Pattern::Aromatic_ring);
     if ((tmpA != molA_patterns.patternMatches.end()) && (tmpB != molB_patterns.patternMatches.end())){
         float angle;
-        float minAngle_required = 30;
-        float maxAngle_required = 150;
         RDGeom::Point3D centroid, normal, pos_c;
         std::vector<RDGeom::Point3D> pos_points_ring;
         for (const auto& matchVectA : tmpA->second){    // Iterats on the Cations patterns
@@ -596,7 +592,6 @@ void findPiStacking(const Molecule& molA, const Molecule& molB, const FoundPatte
     auto molB_pattern = molB_patterns.patternMatches.find(Pattern::Aromatic_ring);
     unsigned int id_pointA, id_pointB;
     RDGeom::Point3D pos_pointA, pos_pointB;
-    float distRequired;
     float distance;
 
     if ((molA_pattern != molA_patterns.patternMatches.end()) && (molB_pattern != molB_patterns.patternMatches.end())){
@@ -662,7 +657,7 @@ void findPiStacking(const Molecule& molA, const Molecule& molB, const FoundPatte
 
                     int count = 0;
 
-                    for(int k = 0; k < pos_ringA.size(); k++){ //checks if the segment P1-centroidA intersects with every segment of ringA
+                    for(std::size_t k = 0; k < pos_ringA.size(); k++){ //checks if the segment P1-centroidA intersects with every segment of ringA
                         if(doSegmentsIntersect(P1, centroidA, pos_ringA.at(k), pos_ringA.at((k+1)%pos_ringA.size()))) count ++; //counts the number of intersections
                     }
 
@@ -683,7 +678,6 @@ void findMetalCoordination(const Molecule& molA, const Molecule& molB, const Fou
 
     if ((tmpA != molA_patterns.patternMatches.end()) && (tmpB != molB_patterns.patternMatches.end())){
         RDGeom::Point3D pos_a, pos_b; 
-        float distRequired = 2.8;
         float distance;
         unsigned int indx_molA;
         unsigned int indx_molB;
@@ -697,7 +691,7 @@ void findMetalCoordination(const Molecule& molA, const Molecule& molB, const Fou
                 pos_b = conformer_molB.getAtomPos(indx_molB);
                 distance = calculateDistance(pos_a, pos_b);
 
-                if (distance <= distRequired){
+                if (distance <= DISTANCE_METAL){
                     getProtLigAtomID(molA, molB, indx_molA, indx_molB, atom_id_molA, atom_id_molB, protA_ligB);
                     std::cout << "Metal\n";
                     output(molA.name, molB.name, atom_id_molA, "Metal", pos_a.x, pos_a.y, pos_a.z, atom_id_molB, "Chelated", pos_b.x, pos_b.y, pos_b.z, "Metal", distance, protA_ligB);

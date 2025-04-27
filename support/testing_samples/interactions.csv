@@ -1,0 +1,55 @@
+LIGAND_NAME,PROTEIN_ATOM_ID,PROTEIN_PATTERN,PROTEIN_X,PROTEIN_Y,PROTEIN_Z,LIGAND_ATOM_ID,LIGAND_PATTERN,LIGAND_X,LIGAND_Y,LIGAND_Z,INTERACTION_TYPE,INTERACTION_DISTANCE
+./2b7a/2b7a_ligand,A.LEU855. CB ,Hydrophobic,114.52,62.691,13.276,8(C),Hydrophobic,114.925,66.379,10.97,Hydrophobic,4.36841
+./2b7a/2b7a_ligand,A.LEU855. CB ,Hydrophobic,114.52,62.691,13.276,10(C),Hydrophobic,114.205,67.016,13.146,Hydrophobic,4.3384
+./2b7a/2b7a_ligand,A.LEU855. CB ,Hydrophobic,114.52,62.691,13.276,12(C),Hydrophobic,112.971,66.403,12.892,Hydrophobic,4.04052
+./2b7a/2b7a_ligand,A.LEU855. CB ,Hydrophobic,114.52,62.691,13.276,13(C),Hydrophobic,112.71,65.818,11.765,Hydrophobic,3.91629
+./2b7a/2b7a_ligand,A.LEU855. CB ,Hydrophobic,114.52,62.691,13.276,14(C),Hydrophobic,113.577,65.764,10.808,Hydrophobic,4.0526
+./2b7a/2b7a_ligand,A.LEU855. CG ,Hydrophobic,115.664,63.197,14.155,9(C),Hydrophobic,115.203,67.008,12.179,Hydrophobic,4.3175
+./2b7a/2b7a_ligand,A.LEU855. CG ,Hydrophobic,115.664,63.197,14.155,10(C),Hydrophobic,114.205,67.016,13.146,Hydrophobic,4.21088
+./2b7a/2b7a_ligand,A.LEU855. CG ,Hydrophobic,115.664,63.197,14.155,12(C),Hydrophobic,112.971,66.403,12.892,Hydrophobic,4.37331
+./2b7a/2b7a_ligand,A.LEU855. CD1,Hydrophobic,116.734,63.828,13.288,7(C),Hydrophobic,115.905,66.289,9.835,Hydrophobic,4.32053
+./2b7a/2b7a_ligand,A.LEU855. CD1,Hydrophobic,116.734,63.828,13.288,8(C),Hydrophobic,114.925,66.379,10.97,Hydrophobic,3.89271
+./2b7a/2b7a_ligand,A.LEU855. CD1,Hydrophobic,116.734,63.828,13.288,9(C),Hydrophobic,115.203,67.008,12.179,Hydrophobic,3.69949
+./2b7a/2b7a_ligand,A.LEU855. CD1,Hydrophobic,116.734,63.828,13.288,10(C),Hydrophobic,114.205,67.016,13.146,Hydrophobic,4.07177
+./2b7a/2b7a_ligand,A.LEU855. CD1,Hydrophobic,116.734,63.828,13.288,14(C),Hydrophobic,113.577,65.764,10.808,Hydrophobic,4.45703
+./2b7a/2b7a_ligand,A.LEU855. CD2,Hydrophobic,115.169,64.181,15.213,9(C),Hydrophobic,115.203,67.008,12.179,Hydrophobic,4.14708
+./2b7a/2b7a_ligand,A.LEU855. CD2,Hydrophobic,115.169,64.181,15.213,10(C),Hydrophobic,114.205,67.016,13.146,Hydrophobic,3.63855
+./2b7a/2b7a_ligand,A.LEU855. CD2,Hydrophobic,115.169,64.181,15.213,12(C),Hydrophobic,112.971,66.403,12.892,Hydrophobic,3.89301
+./2b7a/2b7a_ligand,A.VAL863. CB ,Hydrophobic,115.506,61.045,9.32,6(C),Hydrophobic,114.242,65.075,8.571,Hydrophobic,4.28947
+./2b7a/2b7a_ligand,A.VAL863. CG1,Hydrophobic,116.69,61.935,9.685,4(C),Hydrophobic,116.416,65.546,7.594,Hydrophobic,4.18171
+./2b7a/2b7a_ligand,A.VAL863. CG1,Hydrophobic,116.69,61.935,9.685,5(C),Hydrophobic,115.518,65.633,8.661,Hydrophobic,4.01215
+./2b7a/2b7a_ligand,A.VAL863. CG1,Hydrophobic,116.69,61.935,9.685,6(C),Hydrophobic,114.242,65.075,8.571,Hydrophobic,4.1344
+./2b7a/2b7a_ligand,A.VAL863. CG1,Hydrophobic,116.69,61.935,9.685,7(C),Hydrophobic,115.905,66.289,9.835,Hydrophobic,4.42674
+./2b7a/2b7a_ligand,A.VAL863. CG2,Hydrophobic,115.256,61.126,7.823,6(C),Hydrophobic,114.242,65.075,8.571,Hydrophobic,4.14515
+./2b7a/2b7a_ligand,A.VAL863. CG2,Hydrophobic,115.256,61.126,7.823,17(C),Hydrophobic,112.466,64.089,7.958,Hydrophobic,4.07206
+./2b7a/2b7a_ligand,A.VAL863. CG2,Hydrophobic,115.256,61.126,7.823,21(C),Hydrophobic,112.157,62.218,6.312,Hydrophobic,3.61654
+./2b7a/2b7a_ligand,A.ALA880. CB ,Hydrophobic,119.742,64.332,10.293,1(C),Hydrophobic,117.277,66.878,9.88,Hydrophobic,3.56776
+./2b7a/2b7a_ligand,A.ALA880. CB ,Hydrophobic,119.742,64.332,10.293,3(C),Hydrophobic,117.693,66.099,7.686,Hydrophobic,3.75728
+./2b7a/2b7a_ligand,A.ALA880. CB ,Hydrophobic,119.742,64.332,10.293,4(C),Hydrophobic,116.416,65.546,7.594,Hydrophobic,4.45204
+./2b7a/2b7a_ligand,A.ALA880. CB ,Hydrophobic,119.742,64.332,10.293,7(C),Hydrophobic,115.905,66.289,9.835,Hydrophobic,4.33153
+./2b7a/2b7a_ligand,A.VAL911. CG2,Hydrophobic,119.316,69.03,5.535,3(C),Hydrophobic,117.693,66.099,7.686,Hydrophobic,3.98142
+./2b7a/2b7a_ligand,A.MET929. CB ,Hydrophobic,121.419,65.328,6.315,3(C),Hydrophobic,117.693,66.099,7.686,Hydrophobic,4.0444
+./2b7a/2b7a_ligand,A.MET929. SD ,Hydrophobic,119.288,64.715,4.65,3(C),Hydrophobic,117.693,66.099,7.686,Hydrophobic,3.69821
+./2b7a/2b7a_ligand,A.MET929. SD ,Hydrophobic,119.288,64.715,4.65,4(C),Hydrophobic,116.416,65.546,7.594,Hydrophobic,4.19596
+./2b7a/2b7a_ligand,A.MET929. CE ,Hydrophobic,118.827,63.242,5.568,3(C),Hydrophobic,117.693,66.099,7.686,Hydrophobic,3.73287
+./2b7a/2b7a_ligand,A.MET929. CE ,Hydrophobic,118.827,63.242,5.568,4(C),Hydrophobic,116.416,65.546,7.594,Hydrophobic,3.90205
+./2b7a/2b7a_ligand,A.TYR931. CD1,Hydrophobic,118.991,67.047,14.213,9(C),Hydrophobic,115.203,67.008,12.179,Hydrophobic,4.29972
+./2b7a/2b7a_ligand,A.TYR931. CE1,Hydrophobic,117.98,67.127,15.177,9(C),Hydrophobic,115.203,67.008,12.179,Hydrophobic,4.08826
+./2b7a/2b7a_ligand,A.TYR931. CE1,Hydrophobic,117.98,67.127,15.177,10(C),Hydrophobic,114.205,67.016,13.146,Hydrophobic,4.28811
+./2b7a/2b7a_ligand,A.LEU983. CG ,Hydrophobic,114.151,69.46,7.327,5(C),Hydrophobic,115.518,65.633,8.661,Hydrophobic,4.27717
+./2b7a/2b7a_ligand,A.LEU983. CG ,Hydrophobic,114.151,69.46,7.327,7(C),Hydrophobic,115.905,66.289,9.835,Hydrophobic,4.40702
+./2b7a/2b7a_ligand,A.LEU983. CD1,Hydrophobic,115.552,68.912,7.19,1(C),Hydrophobic,117.277,66.878,9.88,Hydrophobic,3.78799
+./2b7a/2b7a_ligand,A.LEU983. CD1,Hydrophobic,115.552,68.912,7.19,3(C),Hydrophobic,117.693,66.099,7.686,Hydrophobic,3.56972
+./2b7a/2b7a_ligand,A.LEU983. CD1,Hydrophobic,115.552,68.912,7.19,4(C),Hydrophobic,116.416,65.546,7.594,Hydrophobic,3.49852
+./2b7a/2b7a_ligand,A.LEU983. CD1,Hydrophobic,115.552,68.912,7.19,5(C),Hydrophobic,115.518,65.633,8.661,Hydrophobic,3.594
+./2b7a/2b7a_ligand,A.LEU983. CD1,Hydrophobic,115.552,68.912,7.19,6(C),Hydrophobic,114.242,65.075,8.571,Hydrophobic,4.2832
+./2b7a/2b7a_ligand,A.LEU983. CD1,Hydrophobic,115.552,68.912,7.19,7(C),Hydrophobic,115.905,66.289,9.835,Hydrophobic,3.74176
+./2b7a/2b7a_ligand,A.LEU983. CD2,Hydrophobic,113.35,68.646,8.34,4(C),Hydrophobic,116.416,65.546,7.594,Hydrophobic,4.42345
+./2b7a/2b7a_ligand,A.LEU983. CD2,Hydrophobic,113.35,68.646,8.34,5(C),Hydrophobic,115.518,65.633,8.661,Hydrophobic,3.72578
+./2b7a/2b7a_ligand,A.LEU983. CD2,Hydrophobic,113.35,68.646,8.34,6(C),Hydrophobic,114.242,65.075,8.571,Hydrophobic,3.68796
+./2b7a/2b7a_ligand,A.LEU983. CD2,Hydrophobic,113.35,68.646,8.34,7(C),Hydrophobic,115.905,66.289,9.835,Hydrophobic,3.78398
+./2b7a/2b7a_ligand,A.LEU983. CD2,Hydrophobic,113.35,68.646,8.34,8(C),Hydrophobic,114.925,66.379,10.97,Hydrophobic,3.81272
+./2b7a/2b7a_ligand,A.LEU983. CD2,Hydrophobic,113.35,68.646,8.34,13(C),Hydrophobic,112.71,65.818,11.765,Hydrophobic,4.48752
+./2b7a/2b7a_ligand,A.LEU983. CD2,Hydrophobic,113.35,68.646,8.34,14(C),Hydrophobic,113.577,65.764,10.808,Hydrophobic,3.80112
+./2b7a/2b7a_ligand,A.LEU983. CD2,Hydrophobic,113.35,68.646,8.34,15(C),Hydrophobic,113.307,65.138,9.595,Hydrophobic,3.72598
+./2b7a/2b7a_ligand,A.ASP994. CB ,Hydrophobic,113.044,64.803,2.377,22(C),Hydrophobic,110.887,64.332,6.096,Hydrophobic,4.32498

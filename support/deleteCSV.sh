@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Cambia directory nella directory Testing, che si trova nella directory corrente
-cd Testing
+cd support/testing_samples
 
 # Loop attraverso tutte le sottodirectory
 for dir in */; do
