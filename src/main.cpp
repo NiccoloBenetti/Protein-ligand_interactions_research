@@ -1,4 +1,4 @@
-    #include <cuda_runtime.h>
+#include <cuda_runtime.h>
     #include <device_launch_parameters.h>
     #include "helpers.cuh"
     #include "main.hpp"
@@ -847,7 +847,7 @@ void findHydrophobicInteraction(const Molecule& molA, const Molecule& molB, cons
         // Lancia i trasferimenti e i kernel per ogni chunk di donatori
         for (int stream = 0; stream < num_streams; ++stream) {
             size_t lower = stream * chunk_size;
-            size_t upper = std::min(lower + chunk_size, numDonors);
+            size_t upper = std::min(lower + chunk_size, static_cast<size_t>(numDonors));
             size_t width = upper - lower;
 
             // Trasferimento dei chunk di A (ognuno su uno stream)

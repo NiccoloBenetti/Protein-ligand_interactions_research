@@ -1,43 +1,41 @@
 #!/bin/bash
 
-# Controlla se è stato fornito un numero massimo di directory da processare
+# --- 1) Calcola la directory in cui risiede questo script (support/) ---
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# --- 2) Imposta root_dir a una cartella sopra script_dir (HPC-drugDiscovery) ---
+root_dir="$(dirname "$script_dir")"
+
+# --- 3) Numero massimo di cartelle da processare (opzionale) ---
 if [ -z "$1" ]; then
-    max_dirs=-1  # Se non è fornito un numero, setta max_dirs a -1 per indicare nessun limite
+    max_dirs=-1
 else
     max_dirs=$1
 fi
 
 count=0
 
-# Cambia directory nella directory principale contenente le sottodirectory
-cd Testing
+# --- 4) Entra in testing_samples dentro support/ ---
+cd "$script_dir/testing_samples" || { echo "Cannot cd into testing_samples"; exit 1; }
 
-# Loop attraverso tutte le sottodirectory
+# --- 5) Loop su ogni sottocartella ---
 for dir in */; do
-    # Incrementa il contatore
     count=$((count + 1))
-    
-    # Controlla se il contatore ha raggiunto il massimo, solo se max_dirs è maggiore di 0
     if [ "$max_dirs" -gt 0 ] && [ "$count" -gt "$max_dirs" ]; then
         break
     fi
-    
-    # Entra in ogni sottodirectory
-    cd "$dir"
-    
-    # Trova il file della proteina e del ligando
+
+    cd "$dir" || { echo "Cannot cd into $dir"; cd ..; continue; }
+
     protein_file=$(find . -name '*_pocket.pdb' -print -quit)
     ligand_file=$(find . -name '*_ligand.mol2' -print -quit)
-    
-    # Controlla se entrambi i file esistono
+
     if [[ -n "$protein_file" && -n "$ligand_file" ]]; then
-        # Esegui il tuo programma passando i due file come argomenti
-        /home/niccolo/Scrivania/HPC/HPC-drugDiscovery/build/interaction "$protein_file" "$ligand_file"
+        # Esegui interaction dal folder build in HPC-drugDiscovery
+        "$root_dir/build/interaction" "$protein_file" "$ligand_file"
     else
         echo "Files missing in directory $dir"
     fi
-    
-    # Torna alla directory principale
+
     cd ..
 done
-
