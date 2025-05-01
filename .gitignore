@@ -5,3 +5,4 @@ src/esempioInput_10gs_ligand.mol2
 src/esempioInput_10gs_protein.pdb
 .vscode/
 rdkit_paths.cmake
+doxygen_docs/

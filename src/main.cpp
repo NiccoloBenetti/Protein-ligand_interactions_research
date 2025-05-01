@@ -1,3 +1,14 @@
+/**
+ * @file main.cpp
+ * @brief Entry point for the application.
+ * 
+ * This file defines distance and angle thresholds for various molecular interactions
+ * (hydrophobic, hydrogen bonds, halogen bonds, ionic, π-stacking, and metal coordination)
+ * and includes the necessary libraries to perform molecule parsing and analysis using RDKit.
+ */
+
+
+
 #include <cstdlib>
 #include <iostream>
 #include <cstdio> 
@@ -20,59 +31,111 @@
 #include <GraphMol/Descriptors/MolDescriptors.h>
 #include <GraphMol/Substruct/SubstructMatch.h>
 
-// HYDROPHOBIC 
-#define DISTANCE_HYDROPHOBIC 4.5
 
-// HYDROGEN BOND
+/** @defgroup HydrophobicInteraction Hydrophobic Interaction Constants
+ *  @brief Thresholds used to identify hydrophobic interactions.
+ *  @{
+ */
+#define DISTANCE_HYDROPHOBIC 4.5
+/** @} */
+
+/** @defgroup HydrogenBond Hydrogen Bond Constants
+ *  @brief Thresholds for detecting hydrogen bonds.
+ *  @{
+ */
 #define DISTANCE_HYDROGENBOND 3.5
 #define MIN_ANGLE_HYDROGENBOND 130
 #define MAX_ANGLE_HYDROGENBOND 180
+/** @} */
 
-// HALOGEN BOND
+/** @defgroup HalogenBond Halogen Bond Constants
+ *  @brief Thresholds for halogen bond detection.
+ *  @{
+ */
 #define DISTANCE_HALOGENBOND 3.5
 #define MIN_ANGLE1_HALOGENBOND 130
 #define MAX_ANGLE1_HALOGENBOND 180
 #define MIN_ANGLE2_HALOGENBOND 80
 #define MAX_ANGLE2_HALOGENBOND 140
+/** @} */
 
-// IONIC
+/** @defgroup IonicInteraction Ionic Interaction Constants
+ *  @brief Distance and angular thresholds for ionic interactions.
+ *  @{
+ */
 #define DISTANCE_IONIC 4.5
 #define MIN_ANGLE_IONIC 30
 #define MAX_ANGLE_IONIC 150
+/** @} */
 
-// PI STACKING - SANDWICH
+/** @defgroup PiStackingSandwich Pi-Stacking Sandwich Constants
+ *  @brief Thresholds for parallel π-π stacking (sandwich geometry).
+ *  @{
+ */
 #define DISTANCE_SANDWICH 5.5
 #define MIN_PLANES_ANGLE_SANDWICH 0
 #define MAX_PLANES_ANGLE_SANDWICH 30
 #define MIN_NORMAL_CENTROID_ANGLE_SANDWICH 0
 #define MAX_NORMAL_CENTROID_ANGLE_SANDWICH 33
+/** @} */
 
-// PI STACKING - T SHAPE
+/** @defgroup PiStackingTshape Pi-Stacking T-shape Constants
+ *  @brief Thresholds for perpendicular π-π interactions (T-shaped geometry).
+ *  @{
+ */
 #define DISTANCE_TSHAPE 6.5
 #define MIN_PLANES_ANGLE_TSHAPE 50
 #define MAX_PLANES_ANGLE_TSHAPE 90
 #define MIN_NORMAL_CENTROID_ANGLE_TSHAPE 0
 #define MAX_NORMAL_CENTROID_ANGLE_TSHAPE 30
+/** @} */
 
-// METAL COORDINATION
+/** @defgroup MetalCoordination Metal Coordination Constants
+ *  @brief Threshold for detecting metal-ligand interactions.
+ *  @{
+ */
 #define DISTANCE_METAL 2.8
+/** @} */
 
+
+/**
+ * @enum Pattern
+ * @brief Enumeration of atom or group types used for intermolecular interaction matching.
+ * 
+ * These pattern types correspond to chemical features or functional groups
+ * defined via SMARTS patterns. Each entry maps to a specific interaction role.
+ */
 enum class Pattern {
-    Hydrophobic,
-    Hydrogen_donor_H,
-    Hydrogen_acceptor,
-    Halogen_donor_halogen,
-    Halogen_acceptor_any,
-    Anion,
-    Cation,
-    Aromatic_ring,
-    Metal,
-    Chelated,
+    Hydrophobic,             ///< Atom with hydrophobic character
+    Hydrogen_donor_H,        ///< Hydrogen donor including the hydrogen atom
+    Hydrogen_acceptor,       ///< Atom capable of accepting a hydrogen bond
+    Halogen_donor_halogen,   ///< Halogen donor including the halogen atom
+    Halogen_acceptor_any,    ///< Halogen acceptor and its bonded atom
+    Anion,                   ///< Anion
+    Cation,                  ///< Cation
+    Aromatic_ring,           ///< A 5- or 6-membered aromatic ring
+    Metal,                   ///< Metal atom involved in coordination
+    Chelated                 ///< Atom capable of chelating a metal
 };
 
+
 // --------------------------------------------------- OUTPUT'S FILE MANAGEMENT ------------------------------------------------------
+
+/** @defgroup OutputFileManagement Output File Management
+ *  @brief Functions and variables for managing the output CSV file.
+ *  @{
+ */
+/// Output file stream used to write the interaction results in CSV format.
 std::ofstream outputFile;
 
+
+/**
+ * @brief Initializes the output CSV file.
+ * 
+ * Opens a file with the given name and writes the CSV header line.
+ * 
+ * @param fileName Name of the output CSV file.
+ */
 void initializeFile(const char* fileName) {
     outputFile.open(fileName, std::ios::out);
     if (outputFile.is_open()) {
@@ -83,13 +146,41 @@ void initializeFile(const char* fileName) {
     }
 }
 
+/**
+ * @brief Closes the output file stream.
+ * 
+ * Ensures the file is properly closed if it was open.
+ */
 void closeFile() {
     if (outputFile.is_open()) {
         outputFile.close();
     }
 }
 
-//takes input all the values as parameters and prints on the CSV file passed by reference NB.might be necessary to escape the strings if there can be "," in them
+/**
+ * @brief Writes a single interaction entry to the CSV output file.
+ * 
+ * This function records the details of a detected interaction between two atoms,
+ * including their identifiers, 3D coordinates, assigned SMARTS patterns, interaction type,
+ * and interaction distance. It also handles the ordering depending on which molecule
+ * is the protein and which is the ligand.
+ * 
+ * @param name_molA Name of molecule A
+ * @param name_molB Name of molecule B
+ * @param atom_id_molA Atom ID in molecule A
+ * @param pattern_molA SMARTS pattern assigned to the atom in molecule A
+ * @param x_molA X coordinate of atom in molecule A
+ * @param y_molA Y coordinate of atom in molecule A
+ * @param z_molA Z coordinate of atom in molecule A
+ * @param atom_id_molB Atom ID in molecule B
+ * @param pattern_molB SMARTS pattern assigned to the atom in molecule B
+ * @param x_molB X coordinate of atom in molecule B
+ * @param y_molB Y coordinate of atom in molecule B
+ * @param z_molB Z coordinate of atom in molecule B
+ * @param interactionType Type of detected interaction (e.g. Hydrogen bond, Ionic)
+ * @param interactionDistance Measured distance between the interacting atoms
+ * @param protA_ligB Boolean flag indicating the role of molecules (true = A is protein, B is ligand)
+ */
 void output(std::string name_molA, std::string name_molB, std::string atom_id_molA, std::string pattern_molA, float x_molA, float y_molA, float z_molA, std::string atom_id_molB, std::string pattern_molB, float x_molB, float y_molB, float z_molB, std::string interactionType, float interactionDistance, const bool protA_ligB){
     if (outputFile.is_open()){
         if(protA_ligB){
@@ -127,34 +218,72 @@ void output(std::string name_molA, std::string name_molB, std::string atom_id_mo
         std::cerr << "File was not open correctly for writing." << std::endl;
     }
 }
+/** @} */
 
 // ----------------------------------------------------------- STRUCTS -------------------------------------------------------------------------
 
+/**
+ * @struct SMARTSPattern
+ * @brief Associates a chemical interaction pattern with its corresponding SMARTS string.
+ */
 struct SMARTSPattern {
-    Pattern pattern;
-    std::string smartsString;
+    Pattern pattern;           ///< Enum value representing the pattern type
+    std::string smartsString; ///< SMARTS string used for substructure matching
 };
-struct FoundPatterns {
-    std::map<Pattern, std::vector<RDKit::MatchVectType>> patternMatches; // Maps every pattern with vector of all it's found istances that are rappresented ad pairs <athom in the pattern, athom in the mol>.
-};
-struct Molecule {   //This struct is used to save each mol with it's name
-    std::string name;
-    std::unique_ptr<RDKit::ROMol> mol;
 
-    Molecule(const std::string& molName, RDKit::ROMol* molPtr)  // Constructor that populates the name and mol attributes (it neads a pointer to a ROMol object)
+/**
+ * @struct FoundPatterns
+ * @brief Stores the substructure matches found in a molecule for each defined pattern.
+ * 
+ * Each pattern is mapped to a vector of MatchVectType, where each match is a pair
+ * of indices representing the mapping from atoms in the pattern to atoms in the molecule.
+ */
+struct FoundPatterns {
+    /// Map of patterns to the list of all matching atom indices in the molecule.
+    std::map<Pattern, std::vector<RDKit::MatchVectType>> patternMatches;
+};
+
+/**
+ * @struct Molecule
+ * @brief Holds a molecule and its associated name.
+ * 
+ * This structure manages the ownership of an RDKit ROMol object via a unique pointer
+ * and ensures it is not copied accidentally.
+ */
+struct Molecule {
+    std::string name; ///< Name or identifier of the molecule
+    std::unique_ptr<RDKit::ROMol> mol; ///< Pointer to the RDKit molecule structure
+
+    /**
+     * @brief Constructs a Molecule object from a name and a raw RDKit ROMol pointer.
+     * 
+     * @param molName Name of the molecule
+     * @param molPtr Pointer to an RDKit ROMol object (ownership is transferred)
+     */
+    Molecule(const std::string& molName, RDKit::ROMol* molPtr)
         : name(molName), mol(molPtr) {}
 
-    // Disables copy to ensure the ROMol object can not be accidentaly copied
+    /// @brief Disable copy constructor
     Molecule(const Molecule&) = delete;
+
+    /// @brief Disable copy assignment
     Molecule& operator=(const Molecule&) = delete;
 
-    // The following is optional but is better tu put it to avoid problems with the compiler, it enables the possibility to move controll of the object to others
+    /// @brief Enable move constructor (defaulted)
     Molecule(Molecule&&) noexcept = default;
+
+    /// @brief Enable move assignment (defaulted)
     Molecule& operator=(Molecule&&) noexcept = default;
 };
 
 // ---------------------------------------------------- OTHER UTILITIES -----------------------------------------------------------------------
 
+/**
+ * @brief List of predefined SMARTS patterns associated with chemical interaction roles.
+ * 
+ * Each entry maps a Pattern enum to a SMARTS string used for substructure matching.
+ * Note: the Aromatic_ring pattern appears twice (for 5- and 6-membered rings).
+ */
 SMARTSPattern smartsPatterns[] = {
     {Pattern::Hydrophobic , "[c,s,Br,I,S&H0&v2,$([D3,D4;#6])&!$([#6]~[#7,#8,#9])&!$([#6X4H0]);+0]"},
     {Pattern::Hydrogen_donor_H, "[$([O,S;+0]),$([N;v3,v4&+1]),n+0]-[H]"},
@@ -169,8 +298,17 @@ SMARTSPattern smartsPatterns[] = {
     {Pattern::Chelated, "[O,#7&!$([nX3])&!$([NX3]-*=[!#6])&!$([NX3]-[a])&!$([NX4]),-{1-};!+{1-}]"}
 };
 
+/**
+ * @brief Number of SMARTS patterns defined in the smartsPatterns array.
+ */
 const int smartsPatternsCount = sizeof(smartsPatterns) / sizeof(SMARTSPattern);
 
+/**
+ * @brief Converts a Pattern enum value to its string representation.
+ * 
+ * @param pattern The pattern enum to convert.
+ * @return std::string The corresponding string name, or "Unknown" if not matched.
+ */
 std::string PatternToString(Pattern pattern) {
     switch(pattern) {
         case Pattern::Hydrophobic: return "Hydrophobic"; 
@@ -187,6 +325,16 @@ std::string PatternToString(Pattern pattern) {
     }
 }
 
+/**
+ * @brief Prints all SMARTS pattern matches found in a molecule.
+ * 
+ * For each pattern in the FoundPatterns structure, this function prints:
+ * - The name of the pattern
+ * - The number of matches
+ * - The mapping between the pattern atom indices and the corresponding atom indices in the molecule
+ * 
+ * @param foundPatterns A structure containing all matched SMARTS patterns in the molecule.
+ */
 void printFoundPatterns(FoundPatterns foundPatterns){
     std::cout << "Found patterns [" << foundPatterns.patternMatches.size() << "]: "<< std::endl;
 
@@ -206,6 +354,18 @@ void printFoundPatterns(FoundPatterns foundPatterns){
     }
 }
 
+/**
+ * @brief Prints a basic overview of a molecule.
+ * 
+ * This function outputs structural information about the molecule, such as:
+ * - Number of bonds
+ * - Optionally, its SMILES representation
+ * 
+ * (Note: molecular formula and weight are available but currently commented out.)
+ * 
+ * @param mol The molecule to analyze (passed by value).
+ * @param smiles If true, prints the SMILES string of the molecule.
+ */
 void printMolOverview(RDKit::ROMol mol, bool smiles) {
     // Numero di atomi std::cout << "Numero di atomi: " << mol.getNumAtoms() << std::endl;
     // Numero di legami
@@ -228,14 +388,40 @@ void printMolOverview(RDKit::ROMol mol, bool smiles) {
     }
 }
 
-// The name of the files containing the molecules has a .pdb or .mol2 extension at the end that isn't needed nor wonted so this function get's rid of it 
+
+/**
+ * @brief Removes the file extension from a filename string.
+ * 
+ * This function strips common file extensions (e.g., `.pdb`, `.mol2`)
+ * from the input filename. If no dot is found, the original string is returned.
+ * 
+ * @param filename The name of the file including its extension.
+ * @return std::string The filename without the extension.
+ */
 std::string removeFileExtension(const std::string& filename) {
     size_t lastdot = filename.find_last_of(".");
     if (lastdot == std::string::npos) return filename;
     return filename.substr(0, lastdot);
 }
 
-// Creates the PROTEIN_ATOM_ID and LIGAND_ATOM_ID attributes for the CSV file
+
+/**
+ * @brief Builds the PROTEIN_ATOM_ID and LIGAND_ATOM_ID strings for CSV output.
+ * 
+ * Depending on whether molA or molB represents the protein, this function:
+ * - Extracts PDB-specific identifiers (chain ID, residue name, residue number, atom name) for the protein atom
+ * - Constructs a simple identifier with atom index and symbol for the ligand atom
+ * 
+ * The PDB information is accessed via AtomPDBResidueInfo if available.
+ * 
+ * @param molA First molecule (protein or ligand)
+ * @param molB Second molecule (ligand or protein)
+ * @param indx_molA Index of the atom in molA
+ * @param indx_molB Index of the atom in molB
+ * @param atom_id_prot [out] Formatted identifier string for the protein atom
+ * @param atom_id_lig [out] Formatted identifier string for the ligand atom
+ * @param protA_ligB If true, molA is the protein and molB is the ligand; otherwise reversed
+ */
  void getProtLigAtomID(const Molecule& molA, const Molecule& molB, unsigned int indx_molA, unsigned int indx_molB, std::string &atom_id_prot, std::string &atom_id_lig, const bool protA_ligB){
 
     if(protA_ligB){ // If molA contains the protein and molB the ligand
@@ -268,15 +454,37 @@ std::string removeFileExtension(const std::string& filename) {
 
 // ----------------------------------------------------- GEOMETRIC FUNCTIONS --------------------------------------------------------------------
 
-//TODO: mi sa che le due funzioni dopo ci sono gia in rdkit
-float dotProduct(const RDGeom::Point3D &vect_a, const RDGeom::Point3D &vect_b) { //calculates the dot product of a vector
+/** @defgroup GeometricFunctions Geometric Functions
+ *  @brief Functions for geometric calculations in 2D and 3D space.
+ *  @{
+ */
+/**
+ * @brief Calculates the dot product of two 3D vectors.
+ * 
+ * @param vect_a First vector
+ * @param vect_b Second vector
+ * @return float The dot product of the two vectors.
+ */
+float dotProduct(const RDGeom::Point3D &vect_a, const RDGeom::Point3D &vect_b) {
     return vect_a.x * vect_b.x + vect_a.y * vect_b.y + vect_a.z * vect_b.z;
 }
 
+/**
+ * @brief Calculates the norm of a 3D vector.
+ * 
+ * @param vect The vector to calculate the norm for.
+ * @return float The length of the vector.
+ */
 float norm(const RDGeom::Point3D &vect) { //calculates the norm of a vector
     return sqrt(vect.x * vect.x + vect.y * vect.y + vect.z * vect.z);
 }
 
+/**
+ * @brief Checks if a vector is null (length is zero).
+ * 
+ * @param v The vector to check.
+ * @return bool True if the vector is null, false otherwise.
+ */
 bool isVectorNull(RDGeom::Point3D &v) {
     return v.length() == 0;
 }
@@ -293,15 +501,33 @@ bool isVectorNull(RDGeom::Point3D &v) {
 //     intersection->y = y;
 // }
 
+/**
+ * @brief Calculates the rotation angle around the Y-axis for a given 3D vector.
+ * 
+ * 
+ * @param D A 3D vector represented as RDGeom::Point3D.
+ * @return float Rotation angle in radians.
+ */
 float calculateRotationAngleY(RDGeom::Point3D& D) {
     return std::atan2(D.z, D.x);
 }
 
+/**
+ * @brief Calculates the rotation angle around the X-axis for a given 3D vector.
+ * 
+ * @param D A 3D vector represented as RDGeom::Point3D.
+ * @return float Rotation angle in radians.
+ */
 float calculateRotationAngleX(RDGeom::Point3D& D) {
     return std::atan2(D.z, D.y);
 }
 
-// Applys a rotation to the point around the Y axis, of an angle theta
+/**
+ * @brief Applies a rotation to a 3D point around the Y-axis.
+ * 
+ * @param p Pointer to the 3D point to rotate.
+ * @param theta Rotation angle in radians.
+ */
 void rotateY(RDGeom::Point3D* p, float theta) {
         double xNew = cos(theta) * p->x + sin(theta) * p->z;
         double zNew = -sin(theta) * p->x + cos(theta) * p->z;
@@ -309,7 +535,12 @@ void rotateY(RDGeom::Point3D* p, float theta) {
         p->z = zNew;
 }
 
-// Applys a rotation to the point around the X axis, of an angle theta
+/**
+ * @brief Applies a rotation to a 3D point around the X-axis.
+ * 
+ * @param p Pointer to the 3D point to rotate.
+ * @param theta Rotation angle in radians.
+ */
 void rotateX(RDGeom::Point3D* p, float theta) { 
     double yNew = cos(theta) * p->y - sin(theta) * p->z;
     double zNew = sin(theta) * p->y + cos(theta) * p->z;
@@ -317,7 +548,18 @@ void rotateX(RDGeom::Point3D* p, float theta) {
     p->z = zNew;
 }
 
-
+/**
+ * @brief Checks if two segments in 2D space intersect.
+ * 
+ * This function checks if two line segments defined by points a1, b1 and a2, b2 intersect.
+ * It assumes that the segments are coplanar.
+ * 
+ * @param a1 First point of the first segment
+ * @param b1 Second point of the first segment
+ * @param a2 First point of the second segment
+ * @param b2 Second point of the second segment
+ * @return bool True if the segments intersect, false otherwise.
+ */
 bool doSegmentsIntersect(RDGeom::Point3D &a1, RDGeom::Point3D &b1, RDGeom::Point3D &a2, RDGeom::Point3D &b2){ //checks if two COMPLANAR segments intersect
     RDGeom::Point3D a1a2 = a1 - a2;
     RDGeom::Point3D b1b2 = b1 - b2;
@@ -334,6 +576,16 @@ bool doSegmentsIntersect(RDGeom::Point3D &a1, RDGeom::Point3D &b1, RDGeom::Point
     return (t >= 0 && t<= 1 && s >= 0 && s <= 1); //checks that the intersection point is within both segments
 }
 
+/**
+ * @brief Calculates the normal vector to the plane defined by three points in 3D space.
+ * 
+ * This function assumes that the three points are not collinear.
+ * 
+ * @param pos_a First point
+ * @param pos_b Second point
+ * @param pos_c Third point
+ * @return RDGeom::Point3D The normal vector to the plane defined by the three points.
+ */
 RDGeom::Point3D calculateNormalVector(RDGeom::Point3D &pos_a, RDGeom::Point3D &pos_b, RDGeom::Point3D &pos_c){  // calculates the normal vector to the plane identified by the 3 points in input (assuming they are not in line)
     RDGeom::Point3D vect_ab = pos_b - pos_a;
     RDGeom::Point3D vect_ac = pos_c - pos_a;
@@ -343,7 +595,14 @@ RDGeom::Point3D calculateNormalVector(RDGeom::Point3D &pos_a, RDGeom::Point3D &p
     return normal;
 }
 
-float calculateDistance(RDGeom::Point2D &pos_a, RDGeom::Point2D &pos_b){  //calculates euclidian distance between 2 points located in a 2D space
+/**
+ * @brief Calculates the Euclidean distance between two points in 2D space.
+ * 
+ * @param pos_a First point
+ * @param pos_b Second point
+ * @return float The distance between the two points.
+ */
+float calculateDistance(RDGeom::Point2D &pos_a, RDGeom::Point2D &pos_b){ 
     return (pos_a - pos_b).length();
 }
 
@@ -351,6 +610,13 @@ float calculateDistance(RDGeom::Point2D &pos_a, RDGeom::Point2D &pos_b){  //calc
 //     return (pos_a - pos_b).length();
 // }
 
+/**
+ * @brief Calculates the Euclidean distance between two points in 3D space.
+ * 
+ * @param pos_a First point
+ * @param pos_b Second point
+ * @return float The distance between the two points.
+ */
 float calculateDistance(const RDGeom::Point3D &pos_a, const RDGeom::Point3D &pos_b){
     float x_diff = pos_a.x - pos_b.x; 
     float y_diff = pos_a.y - pos_b.y; 
@@ -359,7 +625,18 @@ float calculateDistance(const RDGeom::Point3D &pos_a, const RDGeom::Point3D &pos
     return std::sqrt(x_diff * x_diff + y_diff * y_diff + z_diff * z_diff);
 }
 
-float calculateDistance(RDGeom::Point3D &p1, RDGeom::Point3D &p2, RDGeom::Point3D &p3, RDGeom::Point3D &point) { //calculates euclidian distance between the plane formed by the first three points and the fourth point in a 3D space
+/**
+ * @brief Calculates the distance from a point to the plane defined by three other points in 3D space.
+ * 
+ * This function returns -1 if the three points are collinear.
+ * 
+ * @param p1 First point defining the plane
+ * @param p2 Second point defining the plane
+ * @param p3 Third point defining the plane
+ * @param point The point to measure the distance to
+ * @return float The distance from the point to the plane, or -1 if collinear.
+ */
+float calculateDistance(RDGeom::Point3D &p1, RDGeom::Point3D &p2, RDGeom::Point3D &p3, RDGeom::Point3D &point) {
     
     RDGeom::Point3D normal = calculateNormalVector(p1, p2, p3);
 
@@ -380,6 +657,18 @@ float calculateDistance(RDGeom::Point3D &p1, RDGeom::Point3D &p2, RDGeom::Point3
 
 
 //Having three points located in a 3D space, imagine them forming a triangle: this function calculates the angle in degreeson of the vertex pos_a 
+
+/**
+ * @brief Calculates the angle in degrees between three points in 3D space.
+ * 
+ * This function assumes that the points are not collinear.
+ * Having three points located in a 3D space, imagine them forming a triangle: this function calculates the angle in degreeson of the vertex pos_a 
+ * 
+ * @param pos_a First point (vertex of the angle)
+ * @param pos_b Second point
+ * @param pos_c Third point
+ * @return float The angle in degrees at pos_a.
+ */
 float calculateAngle(RDGeom::Point3D &pos_a, RDGeom::Point3D &pos_b, RDGeom::Point3D &pos_c){
     float ab = calculateDistance(pos_a, pos_b);
     float bc = calculateDistance(pos_b, pos_c);
@@ -388,10 +677,24 @@ float calculateAngle(RDGeom::Point3D &pos_a, RDGeom::Point3D &pos_b, RDGeom::Poi
     return (acos((pow(ab, 2) + pow(ac, 2) - pow(bc, 2)) / (2 * ab * ac))) * (180.0 / M_PI);
 }
 
+/**
+ * @brief Checks if an angle is within a specified range.
+ * 
+ * @param angle The angle to check
+ * @param minAngle The minimum angle of the range
+ * @param maxAngle The maximum angle of the range
+ * @return bool True if the angle is within the range, false otherwise.
+ */
 bool isAngleInRange(float angle, float minAngle, float maxAngle){
     return (angle >= minAngle && angle <= maxAngle) ? true : false;
 }
 
+/**
+ * @brief Calculates the centroid of a vector of 3D points.
+ * 
+ * @param pos_points_ring A vector of 3D points
+ * @return RDGeom::Point3D The centroid of the points.
+ */
 RDGeom::Point3D calculateCentroid(std::vector<RDGeom::Point3D>& pos_points_ring){   // calculates the centroid for a vector of 3D points
     RDGeom::Point3D centroid(0, 0, 0);
     
@@ -404,7 +707,15 @@ RDGeom::Point3D calculateCentroid(std::vector<RDGeom::Point3D>& pos_points_ring)
 }
 
 
-//calculates the angle in degrees between two vectors (the smallest angle of the incidents infinite lines that are formed extending the vectors)
+/**
+ * @brief Calculates the angle in degrees between two vectors in 3D space.
+ * 
+ * This function calculates the angle in degrees between two vectors (the smallest angle of the incidents infinite lines that are formed extending the vectors)
+ * 
+ * @param vect_a First vector
+ * @param vect_b Second vector
+ * @return float The angle in degrees between the two vectors.
+ */
 float calculateVectorAngle(RDGeom::Point3D &vect_a, RDGeom::Point3D &vect_b){
     float dot = dotProduct(vect_a, vect_b);
     float norms = norm(vect_a) * norm(vect_b);
@@ -412,17 +723,56 @@ float calculateVectorAngle(RDGeom::Point3D &vect_a, RDGeom::Point3D &vect_b){
     return angle * 180 / M_PI; 
 }
 
-//TODO: questa si dovrà chiamare caluclateVectorAngle e per l'altra si trova un altro nome
+
+/**
+ * @brief Calculates the actual angle between two vectors in 3D space.
+ * 
+ * This function calculates the angle in degrees between two vectors using the dot product formula.
+ * 
+ * @param vect_a First vector
+ * @param vect_b Second vector
+ * @return float The angle in degrees between the two vectors.
+ */
 float calculateActualVectorAngle(RDGeom::Point3D &vect_a, RDGeom::Point3D &vect_b){ //calculates the angle in degrees between two vectors
     return std::acos(dotProduct(vect_a, vect_b) / ((norm(vect_a)) * (norm(vect_b))) * 180 / M_PI);
 }
 
+/**
+ * @brief Checks if a value is greater than or equal to 90.
+ * 
+ * @param value The value to check
+ * @return bool True if the value is greater than or equal to 90, false otherwise.
+ */
 bool isGreaterThenNinety(float value){ //takes a value, returns true if its greater or equal to 90, false if not
     return value >= 90 ? true : false;
 }
+/** @} */
 
 // ------------------------------------------------------- INTERACTIONS --------------------------------------------------------------------------
 
+/**
+ * @defgroup Interactions Interaction Functions
+ * @brief Functions for detecting and analyzing molecular interactions.
+ * @{
+ */
+
+/**
+ * @brief Detects hydrophobic interactions between two molecules.
+ * 
+ * This function searches for hydrophobic atoms (as defined by SMARTS pattern matches)
+ * in both molecules. For each pair of hydrophobic atoms, it calculates the distance
+ * and determines whether they meet the criteria for a hydrophobic interaction.
+ * 
+ * Matching interactions are printed and written to CSV.
+ * 
+ * @param molA First molecule (protein or ligand)
+ * @param molB Second molecule (ligand or protein)
+ * @param molA_patterns Found SMARTS pattern matches in molA
+ * @param molB_patterns Found SMARTS pattern matches in molB
+ * @param conformer_molA Conformer of molA containing 3D coordinates
+ * @param conformer_molB Conformer of molB containing 3D coordinates
+ * @param protA_ligB Flag indicating whether molA is the protein and molB is the ligand
+ */
 void findHydrophobicInteraction(const Molecule& molA, const Molecule& molB, const FoundPatterns& molA_patterns, const FoundPatterns& molB_patterns, const RDKit::Conformer& conformer_molA, const RDKit::Conformer& conformer_molB, const bool protA_ligB){
     auto tmpA = molA_patterns.patternMatches.find(Pattern::Hydrophobic);
     auto tmpB = molB_patterns.patternMatches.find(Pattern::Hydrophobic);
@@ -435,10 +785,10 @@ void findHydrophobicInteraction(const Molecule& molA, const Molecule& molB, cons
         unsigned int indx_molB;
         std::string atom_id_molA, atom_id_molB;
 
-        for (const auto& matchVectA : tmpA->second){  //for every block of the vector containing Hydrophobic matcher in molA_patterns.patterMatches
+        for (const auto& matchVectA : tmpA->second){  //for every element of the vector containing Hydrophobic matches in molA_patterns.patterMatches
                 indx_molA = matchVectA.at(0).second;  //gets the index number of the atom in molA that we whant to check
                 pos_a = conformer_molA.getAtomPos(indx_molA);
-            for(const auto& matchVectB : tmpB->second){ //for every block of the vector containing Hydrophobic matcher in molB_patterns.patternMatches
+            for(const auto& matchVectB : tmpB->second){ //for every element of the vector containing Hydrophobic matches in molB_patterns.patternMatches
                 indx_molB = matchVectB.at(0).second;
                 pos_b = conformer_molB.getAtomPos(indx_molB);
                 distance = calculateDistance(pos_a, pos_b);
@@ -453,6 +803,23 @@ void findHydrophobicInteraction(const Molecule& molA, const Molecule& molB, cons
     }
 }
 
+/**
+ * @brief Detects hydrogen bonds between two molecules.
+ * 
+ * The function searches for hydrogen donor-hydrogen pairs in one molecule
+ * and hydrogen acceptors in the other. It calculates the distance between donor
+ * and acceptor atoms, and the angle formed by donor-hydrogen-acceptor.
+ * 
+ * When a valid interaction is found, it is recorded to CSV via `output()`.
+ * 
+ * @param molA First molecule (protein or ligand)
+ * @param molB Second molecule (ligand or protein)
+ * @param molA_patterns SMARTS pattern matches in molA
+ * @param molB_patterns SMARTS pattern matches in molB
+ * @param conformer_molA Conformer of molA with 3D coordinates
+ * @param conformer_molB Conformer of molB with 3D coordinates
+ * @param protA_ligB True if molA is protein and molB is ligand, false if reversed
+ */
 void findHydrogenBond(const Molecule& molA, const Molecule& molB, const FoundPatterns& molA_patterns, const FoundPatterns& molB_patterns, const RDKit::Conformer& conformer_molA, const RDKit::Conformer& conformer_molB, const bool protA_ligB){
     auto molA_pattern = molA_patterns.patternMatches.find(Pattern::Hydrogen_donor_H);
     auto molB_pattern = molB_patterns.patternMatches.find(Pattern::Hydrogen_acceptor);
@@ -485,6 +852,25 @@ if ((molA_pattern != molA_patterns.patternMatches.end()) && (molB_pattern != mol
     }
 }
 
+/**
+ * @brief Detects halogen bonds between two molecules.
+ * 
+ * The function looks for halogen-donor/halogen atoms in one molecule
+ * and halogen-acceptor/any atoms in the other. It computes:
+ * - The distance between donor and acceptor
+ * - The angle between donor-halogen-acceptor
+ * - The angle between halogen-acceptor-any
+ * 
+ * Matching interactions are printed and written to CSV.
+ * 
+ * @param molA First molecule (protein or ligand)
+ * @param molB Second molecule (ligand or protein)
+ * @param molA_patterns SMARTS pattern matches in molA
+ * @param molB_patterns SMARTS pattern matches in molB
+ * @param conformer_molA 3D conformer of molA
+ * @param conformer_molB 3D conformer of molB
+ * @param protA_ligB True if molA is protein and molB is ligand, false if reversed
+ */
 void findHalogenBond(const Molecule& molA, const Molecule& molB, const FoundPatterns& molA_patterns, const FoundPatterns& molB_patterns, const RDKit::Conformer& conformer_molA, const RDKit::Conformer& conformer_molB, const bool protA_ligB){
     auto molA_pattern = molA_patterns.patternMatches.find(Pattern::Halogen_donor_halogen);
     auto molB_pattern = molB_patterns.patternMatches.find(Pattern::Halogen_acceptor_any);
@@ -524,6 +910,23 @@ void findHalogenBond(const Molecule& molA, const Molecule& molB, const FoundPatt
     }
 }
 
+/**
+ * @brief Detects ionic interactions between two molecules.
+ * 
+ * This function checks for:
+ * - Cation–anion interactions: direct distance between charged atoms.
+ * - Cation–aromatic ring interactions: geometric validation involving the ring centroid and normal.
+ * 
+ * If the interaction is detected, it is printed and recorded via the `output()` function.
+ * 
+ * @param molA First molecule (protein or ligand)
+ * @param molB Second molecule (ligand or protein)
+ * @param molA_patterns SMARTS pattern matches in molA
+ * @param molB_patterns SMARTS pattern matches in molB
+ * @param conformer_molA 3D conformer of molA
+ * @param conformer_molB 3D conformer of molB
+ * @param protA_ligB True if molA is protein and molB is ligand, false otherwise
+ */
 void findIonicInteraction(const Molecule& molA, const Molecule& molB, const FoundPatterns& molA_patterns, const FoundPatterns& molB_patterns, const RDKit::Conformer& conformer_molA, const RDKit::Conformer& conformer_molB, const bool protA_ligB){
     auto tmpA = molA_patterns.patternMatches.find(Pattern::Cation);
     auto tmpB = molB_patterns.patternMatches.find(Pattern::Anion);
@@ -587,6 +990,24 @@ void findIonicInteraction(const Molecule& molA, const Molecule& molB, const Foun
 }
 
 //two planes facing each other: SANDWICH | two planes perpendicular: T-SHAPE
+
+/**
+ * @brief Detects Pi stacking interactions between two molecules.
+ * 
+ * The function identifies aromatic rings in both molecules and computes geometric properties to detect:
+ * - **Sandwich stacking**: nearly parallel ring planes within a specific distance and alignment
+ * - **T-shape stacking**: nearly perpendicular rings, with the centroid of one pointing toward the plane of the other
+ * 
+ * If the interaction is detected, it is printed and recorded via the `output()` function.
+ * 
+ * @param molA First molecule (protein or ligand)
+ * @param molB Second molecule (ligand or protein)
+ * @param molA_patterns SMARTS pattern matches in molA
+ * @param molB_patterns SMARTS pattern matches in molB
+ * @param conformer_molA 3D conformer of molA
+ * @param conformer_molB 3D conformer of molB
+ * @param protA_ligB True if molA is protein and molB is ligand, false otherwise
+ */
 void findPiStacking(const Molecule& molA, const Molecule& molB, const FoundPatterns& molA_patterns, const FoundPatterns& molB_patterns, const RDKit::Conformer& conformer_molA, const RDKit::Conformer& conformer_molB, const bool protA_ligB){
     auto molA_pattern = molA_patterns.patternMatches.find(Pattern::Aromatic_ring);
     auto molB_pattern = molB_patterns.patternMatches.find(Pattern::Aromatic_ring);
@@ -672,6 +1093,22 @@ void findPiStacking(const Molecule& molA, const Molecule& molB, const FoundPatte
     }
 }
 
+/**
+ * @brief Detects metal coordination interactions between two molecules.
+ * 
+ * The function searches for atoms labeled as "Metal" in one molecule and "Chelated" in the other,
+ * based on SMARTS pattern matching. It calculates the Euclidean distance between pairs of atoms.
+ * 
+ * Valid interactions are recorded using the `output()` function.
+ * 
+ * @param molA First molecule (protein or ligand)
+ * @param molB Second molecule (ligand or protein)
+ * @param molA_patterns SMARTS pattern matches in molA
+ * @param molB_patterns SMARTS pattern matches in molB
+ * @param conformer_molA 3D conformer of molA
+ * @param conformer_molB 3D conformer of molB
+ * @param protA_ligB True if molA is protein and molB is ligand, false otherwise
+ */
 void findMetalCoordination(const Molecule& molA, const Molecule& molB, const FoundPatterns& molA_patterns, const FoundPatterns& molB_patterns, const RDKit::Conformer& conformer_molA, const RDKit::Conformer& conformer_molB, const bool protA_ligB){
     auto tmpA = molA_patterns.patternMatches.find(Pattern::Metal);
     auto tmpB = molB_patterns.patternMatches.find(Pattern::Chelated);
@@ -702,7 +1139,26 @@ void findMetalCoordination(const Molecule& molA, const Molecule& molB, const Fou
 
 }
 
-
+/**
+ * @brief Identifies all relevant intermolecular interactions between a protein and a ligand.
+ * 
+ * This function calls each specific interaction detection function:
+ * - Hydrophobic
+ * - Hydrogen bond (both directions)
+ * - Halogen bond (both directions)
+ * - Ionic (both directions)
+ * - Pi-stacking
+ * - Metal coordination (both directions)
+ * 
+ * Each interaction found is recorded via the `output()` function.
+ * 
+ * @param protein Molecule object representing the protein
+ * @param ligand Molecule object representing the ligand
+ * @param proteinPatterns SMARTS matches found in the protein
+ * @param ligandPatterns SMARTS matches found in the ligand
+ * @param proteinConformer 3D conformer of the protein
+ * @param ligandConformer 3D conformer of the ligand
+ */
 void identifyInteractions(const Molecule& protein, const Molecule& ligand, const FoundPatterns& proteinPatterns, const FoundPatterns& ligandPatterns, const RDKit::Conformer& proteinConformer, const RDKit::Conformer& ligandConformer){
     // every function will need to serch all the interactions of that type and for every one found call the output function that adds them to the CSV file
     // considering some interactions can be formed both ways (cation-anion ; anion-cation) we call the find function two times  
@@ -724,7 +1180,18 @@ void identifyInteractions(const Molecule& protein, const Molecule& ligand, const
     findMetalCoordination(ligand, protein, ligandPatterns, proteinPatterns, ligandConformer, proteinConformer, false);
 }
 
-// for eatch pattern of the Pattern enum looks if it is in the mol and saves all the matches in the MatchVectType field of the map inside FoundPatterns.
+/**
+ * @brief Identifies substructures in a molecule based on predefined SMARTS patterns.
+ * 
+ * For each pattern defined in the global `smartsPatterns` list:
+ * - Converts the SMARTS string to an RDKit molecule.
+ * - Applies substructure matching to the input molecule.
+ * - If matches are found, stores them in the `FoundPatterns` map.
+ * 
+ * 
+ * @param molecule Molecule to analyze for SMARTS matches.
+ * @param foundPatterns Output map storing matches for each recognized pattern.
+ */
 void identifySubstructs(Molecule& molecule, FoundPatterns &foundPatterns){
     for(auto smartsPattern : smartsPatterns){
         std::vector<RDKit::MatchVectType> tmpMatchesVector;
@@ -747,11 +1214,24 @@ void identifySubstructs(Molecule& molecule, FoundPatterns &foundPatterns){
         //TODO: maybe its a good idea to also clean the tmpMatchesVector
     }
 }
+/** @} */
 
 // ------------------------------------------------------- MAIN and INPUT ----------------------------------------------------------------------------------------
 
-// input(char**, int, std::vector<Molecule> &) : takes the command line arguments (files names and number or arguments) 
-// and does the parsing for each file saving a ROMol and the name of that molecule in the last parameter (a vector of struct Molecule passed by ref) 
+/**
+ * @brief Parses molecular structure files (.pdb and .mol2) from command line arguments.
+ * 
+ * This function takes a list of input file names and:
+ * - Opens each file and reads its contents into memory
+ * - Converts the contents into RDKit ROMol objects (PDB for the first file, Mol2 for others)
+ * - Stores each resulting molecule (with its filename as name) into a vector of Molecule structs
+ * 
+ * Memory management is handled via `malloc/free` and `std::unique_ptr`.
+ * 
+ * @param argv Command-line argument array containing file paths
+ * @param argc Number of arguments (including program name)
+ * @param molVector Vector that will store parsed molecules as Molecule objects
+ */
 void input(char **argv, int argc, std::vector<Molecule> &molVector) {
     FILE *file;
     char *fileContent = NULL;
@@ -799,12 +1279,27 @@ void input(char **argv, int argc, std::vector<Molecule> &molVector) {
     }
 }
 
+/**
+ * @brief Main function of the application.
+ * 
+ * This program detects intermolecular interactions between a protein (PDB) and one or more ligands (Mol2).
+ * 
+ * Workflow:
+ * - Parses input files from command line (1st = protein, others = ligands)
+ * - Initializes the CSV output file
+ * - Identifies SMARTS patterns in all molecules
+ * - Detects interactions for each ligand vs. protein
+ * - Outputs results to CSV
+ * 
+ * @param argc Number of command line arguments (including program name)
+ * @param argv Array of C-style strings representing file paths
+ * @return int Exit code
+ */
 int main(int argc, char *argv[]) {  // First argument: PDB file, then a non fixed number of Mol2 files
 
-    std::vector<Molecule> molVector; // Vector of all the molecules with their name, (the first element is always a protein, the other are ligands)
-
-    FoundPatterns proteinPatterns;  //Declares a FoundPattern struct where to save all the pattern found in the protein
-    FoundPatterns ligandPatterns;   //Declares a FoundPattern struct where to save all the pattern found in the ligand, the same will be used for all ligand passed in input.
+    std::vector<Molecule> molVector; ///< Vector of all the molecules with their name, (the first element is always a protein, the other are ligands)
+    FoundPatterns proteinPatterns;  ///< Declares a FoundPattern struct where to save all the pattern found in the protein
+    FoundPatterns ligandPatterns;   ///< Declares a FoundPattern struct where to save all the pattern found in the ligand, the same will be used for all ligand passed in input.
 
     //the CSV file is created and inicialized with the HEADER line in the main
     initializeFile("interactions.csv");
