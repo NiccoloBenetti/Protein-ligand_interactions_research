@@ -2,9 +2,13 @@
  * @file main.cpp
  * @brief Entry point for the application.
  * 
- * This file defines distance and angle thresholds for various molecular interactions
- * (hydrophobic, hydrogen bonds, halogen bonds, ionic, π-stacking, and metal coordination)
- * and includes the necessary libraries to perform molecule parsing and analysis using RDKit.
+ * This file implements the complete logic of the application. It:
+ * - Loads molecular structures from PDB and Mol2 files using RDKit
+ * - Applies SMARTS pattern matching to identify interaction-relevant atoms and groups
+ * - Computes distances, angles and other geometric proprieties to detect physical interactions between molecules
+ * - Outputs the results to a structured CSV file
+ *
+ * This is the main entry point, central logic, and full implementation of the tool.
  */
 
 
