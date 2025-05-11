@@ -1,15 +1,16 @@
 #include <cuda_runtime.h>
 #include <cmath>
+#include "main.hpp"
 
 // ---------------------------------------------------------------------------------------------- LAUNCHERS ------------------------------------------------------------------------------------------------------------
 
-// Kernel CUDA bidimensionale per calcolare le distanze tra atomi
- __global__ void calculateDistancesKernel2D(float* posA_x, float* posA_y, float* posA_z,
+ __global__ void calculateHydrophobicBondKernel(float* posA_x, float* posA_y, float* posA_z,
                                            float* posB_x, float* posB_y, float* posB_z,
                                            float* distances, int numA, int numB) {
     // Calcola gli indici bidimensionali del thread all'interno della griglia
     int i = blockIdx.x * blockDim.x + threadIdx.x;  // Indice per posA (molecola A)
     int j = blockIdx.y * blockDim.y + threadIdx.y;  // Indice per posB (molecola B)
+    int distance;
 
     // Verifica che gli indici siano validi
     if (i < numA && j < numB) {
@@ -17,9 +18,16 @@
         float dx = posA_x[i] - posB_x[j];
         float dy = posA_y[i] - posB_y[j];
         float dz = posA_z[i] - posB_z[j];
-        distances[i * numB + j] = sqrtf(dx * dx + dy * dy + dz * dz);
+        distance = sqrtf(dx * dx + dy * dy + dz * dz);
+        
+        if(distance <= DISTANCE_HYDROPHOBIC) { // Salva i risultati solo se rispettano i requisiti
+            distances[i * numB + j] = distance;
+        } else{
+            distances[i * numB + j] = -1.0f;  // Nessuna interazione
+        }
     }
 }
+
 
 __global__ void calculateHydrogenBondKernel(float* donor_x, float* donor_y, float* donor_z,
                                             float* hydrogen_x, float* hydrogen_y, float* hydrogen_z,
@@ -33,7 +41,7 @@ __global__ void calculateHydrogenBondKernel(float* donor_x, float* donor_y, floa
         float dx = donor_x[i] - acceptor_x[j];
         float dy = donor_y[i] - acceptor_y[j];
         float dz = donor_z[i] - acceptor_z[j];
-        distances[i * numAcceptors + j] = sqrtf(dx * dx + dy * dy + dz * dz);
+        float distance = sqrtf(dx * dx + dy * dy + dz * dz);
 
         // Calcolo dell'angolo tra donatore, idrogeno e accettore
         float hx = hydrogen_x[i], hy = hydrogen_y[i], hz = hydrogen_z[i];
@@ -43,7 +51,15 @@ __global__ void calculateHydrogenBondKernel(float* donor_x, float* donor_y, floa
         float dotProduct = dhx * ahx + dhy * ahy + dhz * ahz;
         float mag_dh = sqrtf(dhx * dhx + dhy * dhy + dhz * dhz);
         float mag_ah = sqrtf(ahx * ahx + ahy * ahy + ahz * ahz);
-        angles[i * numAcceptors + j] = acosf(dotProduct / (mag_dh * mag_ah)) * 180.0f / M_PI;
+        float angle = acosf(dotProduct / (mag_dh * mag_ah)) * 180.0f / M_PI;
+
+        // Salva le distanze e gli angoli solo se soddisfano i criteri
+        if (distance <= DISTANCE_HYDROGENBOND && angle >= MIN_ANGLE_HYDROGENBOND && angle <= MAX_ANGLE_HYDROGENBOND) {
+            distances[i * numAcceptors + j] = distance;
+            angles[i * numAcceptors + j] = angle;
+        } else {
+            distances[i * numAcceptors + j] = -1.0f;  // Usa un valore negativo per indicare nessuna interazione
+        }
     }
 }
 
@@ -52,8 +68,7 @@ __global__ void calculateHalogenBondKernel(float* donor_x, float* donor_y, float
                                            float* acceptor_x, float* acceptor_y, float* acceptor_z,
                                            float* any_x, float* any_y, float* any_z,
                                            float* distances, float* firstAngles, float* secondAngles,
-                                           int numDonors, int numAcceptors, float maxDistance,
-                                           float minAngle1, float maxAngle1, float minAngle2, float maxAngle2) {
+                                           int numDonors, int numAcceptors) {
     int i = blockIdx.x * blockDim.x + threadIdx.x;  // Indice per i donatori
     int j = blockIdx.y * blockDim.y + threadIdx.y;  // Indice per gli accettori
 
@@ -86,8 +101,8 @@ __global__ void calculateHalogenBondKernel(float* donor_x, float* donor_y, float
         float secondAngle = acosf(dotProduct2 / (mag_ahh * mag_aa)) * 180.0f / M_PI;
 
         // Salva le distanze e gli angoli solo se soddisfano i criteri
-        if (distance <= maxDistance && firstAngle >= minAngle1 && firstAngle <= maxAngle1 && 
-            secondAngle >= minAngle2 && secondAngle <= maxAngle2) {
+        if (distance <= DISTANCE_HALOGENBOND && firstAngle >= MIN_ANGLE1_HALOGENBOND && firstAngle <= MAX_ANGLE1_HALOGENBOND && 
+            secondAngle >= MIN_ANGLE2_HALOGENBOND && secondAngle <= MAX_ANGLE2_HALOGENBOND) {
             distances[i * numAcceptors + j] = distance;
             firstAngles[i * numAcceptors + j] = firstAngle;
             secondAngles[i * numAcceptors + j] = secondAngle;
@@ -99,7 +114,7 @@ __global__ void calculateHalogenBondKernel(float* donor_x, float* donor_y, float
 
 __global__ void calculateCationAnionKernel(float* cation_x, float* cation_y, float* cation_z,
                                            float* anion_x, float* anion_y, float* anion_z,
-                                           float* distances, int numCations, int numAnions, float maxDistance) {
+                                           float* distances, int numCations, int numAnions) {
     int i = blockIdx.x * blockDim.x + threadIdx.x;  // Indice per i cationi
     int j = blockIdx.y * blockDim.y + threadIdx.y;  // Indice per gli anioni
 
@@ -111,7 +126,7 @@ __global__ void calculateCationAnionKernel(float* cation_x, float* cation_y, flo
         float distance = sqrtf(dx * dx + dy * dy + dz * dz);
 
         // Verifica se la distanza è inferiore alla distanza massima per l'interazione ionica
-        if (distance <= maxDistance) {
+        if (distance <= DISTANCE_IONIC) {
             distances[i * numAnions + j] = distance;
         } else {
             distances[i * numAnions + j] = -1.0f;  // Nessuna interazione
@@ -122,8 +137,7 @@ __global__ void calculateCationAnionKernel(float* cation_x, float* cation_y, flo
 __global__ void calculateCationRingKernel(float* cation_x, float* cation_y, float* cation_z,
                                           float* ring_centroid_x, float* ring_centroid_y, float* ring_centroid_z,
                                           float* ring_normal_x, float* ring_normal_y, float* ring_normal_z,
-                                          float* distances, float* angles, int numCations, int numRings, 
-                                          float maxDistance, float minAngle, float maxAngle) {
+                                          float* distances, float* angles, int numCations, int numRings) {
     int i = blockIdx.x * blockDim.x + threadIdx.x;  // Indice per i cationi
     int j = blockIdx.y * blockDim.y + threadIdx.y;  // Indice per gli anelli aromatici
 
@@ -135,7 +149,7 @@ __global__ void calculateCationRingKernel(float* cation_x, float* cation_y, floa
         float distance = sqrtf(dx * dx + dy * dy + dz * dz);
 
         // Verifica se la distanza è inferiore alla distanza massima
-        if (distance <= maxDistance) {
+        if (distance <= DISTANCE_IONIC) {
             // Calcolo dell'angolo tra il catione e il vettore normale all'anello
             float dotProduct = dx * ring_normal_x[j] + dy * ring_normal_y[j] + dz * ring_normal_z[j];
             float magnitude_cation = sqrtf(dx * dx + dy * dy + dz * dz);
@@ -145,7 +159,7 @@ __global__ void calculateCationRingKernel(float* cation_x, float* cation_y, floa
             float angle = acosf(dotProduct / (magnitude_cation * magnitude_normal)) * 180.0f / M_PI;
 
             // Verifica se l'angolo è compreso nell'intervallo richiesto
-            if (angle >= minAngle && angle <= maxAngle) {
+            if (angle >= MIN_ANGLE_IONIC && angle <= MAX_ANGLE_IONIC) {
                 distances[i * numRings + j] = distance;
                 angles[i * numRings + j] = angle;
             } else {
@@ -157,11 +171,35 @@ __global__ void calculateCationRingKernel(float* cation_x, float* cation_y, floa
     }
 }
 
+__global__ void calculateMetalBondKernel(float* posA_x, float* posA_y, float* posA_z,
+                                           float* posB_x, float* posB_y, float* posB_z,
+                                           float* distances, int numA, int numB) {
+    // Calcola gli indici bidimensionali del thread all'interno della griglia
+    int i = blockIdx.x * blockDim.x + threadIdx.x;  // Indice per posA (molecola A)
+    int j = blockIdx.y * blockDim.y + threadIdx.y;  // Indice per posB (molecola B)
+    int distance;
+
+    // Verifica che gli indici siano validi
+    if (i < numA && j < numB) {
+        // Calcolo della distanza euclidea tra l'atomo i di molA e l'atomo j di molB
+        float dx = posA_x[i] - posB_x[j];
+        float dy = posA_y[i] - posB_y[j];
+        float dz = posA_z[i] - posB_z[j];
+        distance = sqrtf(dx * dx + dy * dy + dz * dz);
+        
+        if(distance <= DISTANCE_METAL) { // Salva i risultati solo se rispettano i requisiti
+            distances[i * numB + j] = distance;
+        } else{
+            distances[i * numB + j] = -1.0f;  // Nessuna interazione
+        }
+    }
+}
+
 // ---------------------------------------------------------------------------------------------- LAUNCHERS ------------------------------------------------------------------------------------------------------------
 
 
 // Funzione wrapper per chiamare il kernel CUDA bidimensionale
-extern "C" void launchDistanceKernel2D(float* d_posA_x, float* d_posA_y, float* d_posA_z,
+extern "C" void launchHydrophobicBondKernel(float* d_posA_x, float* d_posA_y, float* d_posA_z,
                                        float* d_posB_x, float* d_posB_y, float* d_posB_z,
                                        float* d_distances, int numA, int numB, int blockSizeX, int blockSizeY, cudaStream_t stream) {
     // Definisci la dimensione del blocco e della griglia
@@ -170,7 +208,7 @@ extern "C" void launchDistanceKernel2D(float* d_posA_x, float* d_posA_y, float* 
                        (numB + blockSizeY - 1) / blockSizeY);  // Griglia 2D di blocchi
 
     // Lancia il kernel CUDA bidimensionale nel stream specificato
-    calculateDistancesKernel2D<<<blocksPerGrid, threadsPerBlock, 0, stream>>>(d_posA_x, d_posA_y, d_posA_z,
+    calculateHydrophobicBondKernel<<<blocksPerGrid, threadsPerBlock, 0, stream>>>(d_posA_x, d_posA_y, d_posA_z,
                                                                              d_posB_x, d_posB_y, d_posB_z,
                                                                              d_distances, numA, numB);
 }
@@ -202,9 +240,7 @@ extern "C" void launchHalogenBondKernel(float* d_donor_x, float* d_donor_y, floa
                                         float* d_acceptor_x, float* d_acceptor_y, float* d_acceptor_z,
                                         float* d_any_x, float* d_any_y, float* d_any_z,
                                         float* d_distances, float* d_firstAngles, float* d_secondAngles,
-                                        int numDonors, int numAcceptors, int blockSizeX, int blockSizeY,
-                                        float maxDistance, float minAngle1, float maxAngle1,
-                                        float minAngle2, float maxAngle2, cudaStream_t stream) {
+                                        int numDonors, int numAcceptors, int blockSizeX, int blockSizeY, cudaStream_t stream) {
     // Definisci la dimensione dei blocchi e della griglia
     dim3 threadsPerBlock(blockSizeX, blockSizeY);
     dim3 blocksPerGrid((numDonors + blockSizeX - 1) / blockSizeX, 
@@ -217,13 +253,13 @@ extern "C" void launchHalogenBondKernel(float* d_donor_x, float* d_donor_y, floa
         d_acceptor_x, d_acceptor_y, d_acceptor_z,
         d_any_x, d_any_y, d_any_z,
         d_distances, d_firstAngles, d_secondAngles,
-        numDonors, numAcceptors, maxDistance, minAngle1, maxAngle1, minAngle2, maxAngle2);
+        numDonors, numAcceptors);
 }
 
 extern "C" void launchIonicInteractionsKernel_CationAnion(float* d_cation_x, float* d_cation_y, float* d_cation_z,
                                                           float* d_anion_x, float* d_anion_y, float* d_anion_z,
                                                           float* d_distances, int numCations, int numAnions, 
-                                                          int blockSizeX, int blockSizeY, float maxDistance) {
+                                                          int blockSizeX, int blockSizeY) {
     dim3 threadsPerBlock(blockSizeX, blockSizeY);
     dim3 blocksPerGrid((numCations + blockSizeX - 1) / blockSizeX, 
                        (numAnions + blockSizeY - 1) / blockSizeY);
@@ -232,14 +268,14 @@ extern "C" void launchIonicInteractionsKernel_CationAnion(float* d_cation_x, flo
     calculateCationAnionKernel<<<blocksPerGrid, threadsPerBlock>>>(
         d_cation_x, d_cation_y, d_cation_z,
         d_anion_x, d_anion_y, d_anion_z,
-        d_distances, numCations, numAnions, maxDistance);
+        d_distances, numCations, numAnions);
 }
 
 extern "C" void launchIonicInteractionsKernel_CationRing(float* d_cation_x, float* d_cation_y, float* d_cation_z,
                                                          float* d_ring_centroid_x, float* d_ring_centroid_y, float* d_ring_centroid_z,
                                                          float* d_ring_normal_x, float* d_ring_normal_y, float* d_ring_normal_z,
                                                          float* d_distances, float* d_angles, int numCations, int numRings, 
-                                                         int blockSizeX, int blockSizeY, float maxDistance, float minAngle, float maxAngle) {
+                                                         int blockSizeX, int blockSizeY) {
     dim3 threadsPerBlock(blockSizeX, blockSizeY);
     dim3 blocksPerGrid((numCations + blockSizeX - 1) / blockSizeX, 
                        (numRings + blockSizeY - 1) / blockSizeY);
@@ -249,7 +285,21 @@ extern "C" void launchIonicInteractionsKernel_CationRing(float* d_cation_x, floa
         d_cation_x, d_cation_y, d_cation_z,
         d_ring_centroid_x, d_ring_centroid_y, d_ring_centroid_z,
         d_ring_normal_x, d_ring_normal_y, d_ring_normal_z,
-        d_distances, d_angles, numCations, numRings, maxDistance, minAngle, maxAngle);
+        d_distances, d_angles, numCations, numRings);
+}
+
+extern "C" void launchMetalBondKernel(float* d_posA_x, float* d_posA_y, float* d_posA_z,
+                                       float* d_posB_x, float* d_posB_y, float* d_posB_z,
+                                       float* d_distances, int numA, int numB, int blockSizeX, int blockSizeY, cudaStream_t stream) {
+    // Definisci la dimensione del blocco e della griglia
+    dim3 threadsPerBlock(blockSizeX, blockSizeY);  // Blocchi 2D di thread
+    dim3 blocksPerGrid((numA + blockSizeX - 1) / blockSizeX, 
+                       (numB + blockSizeY - 1) / blockSizeY);  // Griglia 2D di blocchi
+
+    // Lancia il kernel CUDA bidimensionale nel stream specificato
+    calculateMetalBondKernel<<<blocksPerGrid, threadsPerBlock, 0, stream>>>(d_posA_x, d_posA_y, d_posA_z,
+                                                                             d_posB_x, d_posB_y, d_posB_z,
+                                                                             d_distances, numA, numB);
 }
 
 

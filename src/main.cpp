@@ -1,4 +1,4 @@
-#include <cuda_runtime.h>
+    #include <cuda_runtime.h>
     #include <device_launch_parameters.h>
     #include "helpers.cuh"
     #include "main.hpp"
@@ -24,40 +24,6 @@
     #include <GraphMol/RDKitBase.h>
     #include <GraphMol/Descriptors/MolDescriptors.h>
     #include <GraphMol/Substruct/SubstructMatch.h>
-
-    // HYDROPHOBIC 
-    #define DISTANCE_HYDROPHOBIC 4.5
-
-    // HYDROGEN BOND
-    #define DISTANCE_HYDROGENBOND 3.5
-    #define MIN_ANGLE_HYDROGENBOND 130
-    #define MAX_ANGLE_HYDROGENBOND 180
-
-    // HALOGEN BOND
-    #define DISTANCE_HALOGENBOND 3.5
-    #define MIN_ANGLE1_HALOGENBOND 130
-    #define MAX_ANGLE1_HALOGENBOND 180
-    #define MIN_ANGLE2_HALOGENBOND 80
-    #define MAX_ANGLE2_HALOGENBOND 140
-
-    // IONIC
-    #define DISTANCE_IONIC 4.5
-    #define MIN_ANGLE_IONIC 30
-    #define MAX_ANGLE_IONIC 150
-
-    // PI STACKING - SANDWICH
-    #define DISTANCE_SANDWICH 5.5
-    #define MIN_PLANES_ANGLE_SANDWICH 0
-    #define MAX_PLANES_ANGLE_SANDWICH 30
-    #define MIN_NORMAL_CENTROID_ANGLE_SANDWICH 0
-    #define MAX_NORMAL_CENTROID_ANGLE_SANDWICH 33
-
-    // PI STACKING - T SHAPE
-    #define DISTANCE_TSHAPE 6.5
-    #define MIN_PLANES_ANGLE_TSHAPE 50
-    #define MAX_PLANES_ANGLE_TSHAPE 90
-    #define MIN_NORMAL_CENTROID_ANGLE_TSHAPE 0
-    #define MAX_NORMAL_CENTROID_ANGLE_TSHAPE 30
 
     enum class Pattern {
         Hydrophobic,
@@ -430,7 +396,7 @@
 
     // Dichiarazione della funzione wrapper definita in kernel.cu
 
-    extern void launchDistanceKernel2D(float* d_posA_x, float* d_posA_y, float* d_posA_z,
+    extern void launchHydrophobicBondKernel(float* d_posA_x, float* d_posA_y, float* d_posA_z,
                                 float* d_posB_x, float* d_posB_y, float* d_posB_z,
                                 float* d_distances, int numA, int numB, int blockSizeX, int blockSizeY);
 
@@ -446,9 +412,7 @@
                         float* d_acceptor_x, float* d_acceptor_y, float* d_acceptor_z,
                         float* d_any_x, float* d_any_y, float* d_any_z,
                         float* d_distances, float* d_firstAngles, float* d_secondAngles,
-                        int numDonors, int numAcceptors, int blockSizeX, int blockSizeY,
-                        float maxDistance, float minAngle1, float maxAngle1,
-                        float minAngle2, float maxAngle2, cudaStream_t stream);
+                        int numDonors, int numAcceptors, int blockSizeX, int blockSizeY, cudaStream_t stream);
 
 
     extern void launchIonicInteractionsKernel_CationAnion(float* d_cation_x, float* d_cation_y, float* d_cation_z,
@@ -460,7 +424,11 @@
                                                          float* d_ring_centroid_x, float* d_ring_centroid_y, float* d_ring_centroid_z,
                                                          float* d_ring_normal_x, float* d_ring_normal_y, float* d_ring_normal_z,
                                                          float* d_distances, float* d_angles, int numCations, int numRings, 
-                                                         int blockSizeX, int blockSizeY, float maxDistance, float minAngle, float maxAngle);
+                                                         int blockSizeX, int blockSizeY);
+
+    extern void launchMetalBondKernel(float* d_posA_x, float* d_posA_y, float* d_posA_z,
+                                            float* d_posB_x, float* d_posB_y, float* d_posB_z,
+                                            float* d_distances, int numA, int numB, int blockSizeX, int blockSizeY);
    
 
 
@@ -556,7 +524,7 @@ void findHydrophobicInteraction(const Molecule& molA, const Molecule& molB, cons
                                (tmpB->second.size() + blockSizeY - 1) / blockSizeY);
 
             // Lancia il kernel per ogni chunk di A contro l'intero set di B
-            launchDistanceKernel2D(d_posA_x + lowerA, d_posA_y + lowerA, d_posA_z + lowerA,
+            launchHydrophobicBondKernel(d_posA_x + lowerA, d_posA_y + lowerA, d_posA_z + lowerA,
                                    d_posB_x, d_posB_y, d_posB_z,
                                    d_distances + lowerA * tmpB->second.size(), widthA, tmpB->second.size(), blockSizeX, blockSizeY, streams[stream]);
 
@@ -573,14 +541,13 @@ void findHydrophobicInteraction(const Molecule& molA, const Molecule& molB, cons
         // Post-processamento sulla CPU per identificare interazioni idrofobiche
         for (size_t i = 0; i < tmpA->second.size(); ++i) {
             for (size_t j = 0; j < tmpB->second.size(); ++j) {
-                float distance = distances_host[i * tmpB->second.size() + j];
-                if (distance <= DISTANCE_HYDROPHOBIC) {
+                if (distances_host[i * tmpB->second.size() + j] > 0) {
                     std::string atom_id_molA, atom_id_molB;
                     getProtLigAtomID(molA, molB, i, j, atom_id_molA, atom_id_molB, protA_ligB);
                     if (printInteractions)
                         std::cout << "Hydrophobic\n";
                     output(molA.name, molB.name, atom_id_molA, "Hydrophobic", posA_x[i], posA_y[i], posA_z[i],
-                        atom_id_molB, "Hydrophobic", posB_x[j], posB_y[j], posB_z[j], "Hydrophobic", distance, protA_ligB);
+                        atom_id_molB, "Hydrophobic", posB_x[j], posB_y[j], posB_z[j], "Hydrophobic", distances_host[i * tmpB->second.size() + j], protA_ligB);
                 }
             }
         }
@@ -698,13 +665,13 @@ void findHydrophobicInteraction(const Molecule& molA, const Molecule& molB, cons
         cudaMemcpy(distances.data(), d_distances, distances.size() * sizeof(float), cudaMemcpyDeviceToHost);
         cudaMemcpy(angles.data(), d_angles, angles.size() * sizeof(float), cudaMemcpyDeviceToHost);
 
-        // Post-processamento sulla CPU per trovare i legami a idrogeno
+        // Post-processamento sulla CPU
         for (size_t i = 0; i < donor_x.size(); ++i) {
             for (size_t j = 0; j < acceptor_x.size(); ++j) {
                 float distance = distances[i * acceptor_x.size() + j];
-                float angle = angles[i * acceptor_x.size() + j];
 
-                if (distance <= DISTANCE_HYDROGENBOND && isAngleInRange(angle, MIN_ANGLE_HYDROGENBOND, MAX_ANGLE_HYDROGENBOND)) {
+                if (distance > 0) {
+                    float angle = angles[i * acceptor_x.size() + j];
                     std::string atom_id_molA, atom_id_molB;
                     getProtLigAtomID(molA, molB, i, j, atom_id_molA, atom_id_molB, protA_ligB);
                     if (printInteractions)
@@ -873,8 +840,7 @@ void findHydrophobicInteraction(const Molecule& molA, const Molecule& molB, cons
                                     d_any_x, d_any_y, d_any_z,
                                     d_distances + lower * numAcceptors, d_firstAngles + lower * numAcceptors,
                                     d_secondAngles + lower * numAcceptors, width, numAcceptors,
-                                    blockSizeX, blockSizeY, maxDistance, minAngle1, maxAngle1, minAngle2, maxAngle2,
-                                    streams[stream]);
+                                    blockSizeX, blockSizeY, streams[stream]);
 
             // Copia i risultati parziali dalla GPU alla CPU per ogni chunk
             cudaMemcpyAsync(distances_host + lower * numAcceptors, d_distances + lower * numAcceptors, width * numAcceptors * sizeof(float), cudaMemcpyDeviceToHost, streams[stream]);
@@ -1058,7 +1024,7 @@ void findHydrophobicInteraction(const Molecule& molA, const Molecule& molB, cons
                                          d_ring_centroid_x, d_ring_centroid_y, d_ring_centroid_z,
                                          d_ring_normal_x, d_ring_normal_y, d_ring_normal_z,
                                          d_distances_ring, d_angles_ring, numCations, numRings,
-                                         blockSizeX, blockSizeY, maxDistance, 30.0f, 150.0f);
+                                         blockSizeX, blockSizeY);
 
 
     // Copia dei risultati dalla GPU alla CPU
@@ -1262,8 +1228,7 @@ void findHydrophobicInteraction(const Molecule& molA, const Molecule& molB, cons
         // Lancia il kernel CUDA per calcolare le distanze
         int blockSizeX = 16;
         int blockSizeY = 16;
-        float distRequired = 2.8f;
-        launchDistanceKernel2D(d_metal_x, d_metal_y, d_metal_z,
+        launchMetalBondKernel(d_metal_x, d_metal_y, d_metal_z,
                                       d_chelated_x, d_chelated_y, d_chelated_z,
                                       d_distances, numMetals, numChelated, blockSizeX, blockSizeY, 0); //stream momentaneamente a 0
 
@@ -1271,18 +1236,17 @@ void findHydrophobicInteraction(const Molecule& molA, const Molecule& molB, cons
         std::vector<float> distances(numMetals * numChelated);
         cudaMemcpy(distances.data(), d_distances, numMetals * numChelated * sizeof(float), cudaMemcpyDeviceToHost);
 
-        // Post-processamento sulla CPU per controllare le distanze e stampare i risultati
+        // Post-processamento sulla CPU per stampare i risultati
         for (int i = 0; i < numMetals; ++i) {
             for (int j = 0; j < numChelated; ++j) {
-                float distance = distances[i * numChelated + j];
-                if (distance <= distRequired) { 
+                if (distances[i * numChelated + j] > 0) { 
                     std::string atom_id_molA, atom_id_molB;
                     getProtLigAtomID(molA, molB, i, j, atom_id_molA, atom_id_molB, protA_ligB);
                     if (printInteractions)
                         std::cout << "Metal\n";
                     output(molA.name, molB.name, atom_id_molA, "Metal", metal_x[i], metal_y[i], metal_z[i],
                            atom_id_molB, "Chelated", chelated_x[j], chelated_y[j], chelated_z[j],
-                           "Metal", distance, protA_ligB);
+                           "Metal", distances[i * numChelated + j], protA_ligB);
                 }
             }
         }
