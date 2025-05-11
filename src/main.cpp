@@ -2,6 +2,8 @@
     #include <device_launch_parameters.h>
     #include "helpers.cuh"
     #include "main.hpp"
+    #include "nvtx_tags.hpp"
+
 
     #include <cstdlib>
     #include <iostream>
@@ -291,7 +293,7 @@
         RDGeom::Point3D b1b2 = b1 - b2;
         RDGeom::Point3D a1b1 = a1 - b1;
 
-        double a =  a1a2.x, b = -b1b2.x, c = a1a2.y, d = -b1b2.y, e = a1a2.z, f = -b1b2.z; //fill the coeficients in the matrix rapresenting the equations
+        double a =  a1a2.x, b = -b1b2.x, c = a1a2.y, d = -b1b2.y; //e = a1a2.z, f = -b1b2.z; //fill the coeficients in the matrix rapresenting the equations
         double det = a * d - b * c; //calculates the det of the matrix to check if there are solutions
 
         if(fabs(det) < 1e-10) return false; //checks if the det = 0 it means that there are no solutions the segments are or parallel or the same segment
@@ -491,7 +493,7 @@ void findHydrophobicInteraction(const Molecule& molA, const Molecule& molB, cons
         cudaMalloc(&d_distances, tmpA->second.size() * tmpB->second.size() * sizeof(float));
 
         // Numero di stream e chunk
-        const int num_streams = 200;
+        const int num_streams = 1;
         cudaStream_t streams[num_streams];
         for (int i = 0; i < num_streams; ++i) {
             cudaStreamCreate(&streams[i]);
@@ -581,8 +583,7 @@ void findHydrophobicInteraction(const Molecule& molA, const Molecule& molB, cons
     void findHydrogenBond(const Molecule& molA, const Molecule& molB, const FoundPatterns& molA_patterns, const FoundPatterns& molB_patterns, const RDKit::Conformer& conformer_molA, const RDKit::Conformer& conformer_molB, const bool protA_ligB, const bool printInteractions) {
     auto molA_pattern = molA_patterns.patternMatches.find(Pattern::Hydrogen_donor_H);
     auto molB_pattern = molB_patterns.patternMatches.find(Pattern::Hydrogen_acceptor);
-    float distance;
-
+    
     if ((molA_pattern != molA_patterns.patternMatches.end()) && (molB_pattern != molB_patterns.patternMatches.end())) {  
         std::vector<float> donor_x, donor_y, donor_z;
         std::vector<float> hydrogen_x, hydrogen_y, hydrogen_z;
@@ -661,9 +662,7 @@ void findHydrophobicInteraction(const Molecule& molA, const Molecule& molB, cons
 
         // Copia dei risultati dalla GPU alla CPU
         std::vector<float> distances(donor_x.size() * acceptor_x.size());
-        std::vector<float> angles(donor_x.size() * acceptor_x.size());
         cudaMemcpy(distances.data(), d_distances, distances.size() * sizeof(float), cudaMemcpyDeviceToHost);
-        cudaMemcpy(angles.data(), d_angles, angles.size() * sizeof(float), cudaMemcpyDeviceToHost);
 
         // Post-processamento sulla CPU
         for (size_t i = 0; i < donor_x.size(); ++i) {
@@ -671,7 +670,6 @@ void findHydrophobicInteraction(const Molecule& molA, const Molecule& molB, cons
                 float distance = distances[i * acceptor_x.size() + j];
 
                 if (distance > 0) {
-                    float angle = angles[i * acceptor_x.size() + j];
                     std::string atom_id_molA, atom_id_molB;
                     getProtLigAtomID(molA, molB, i, j, atom_id_molA, atom_id_molB, protA_ligB);
                     if (printInteractions)
@@ -736,8 +734,8 @@ void findHydrophobicInteraction(const Molecule& molA, const Molecule& molB, cons
         cudaMallocHost(&secondAngles_host, numDonors * numAcceptors * sizeof(float));
 
         // Estrazione delle coordinate da molA (donatori e alogeni)
-        for (size_t i = 0; i < numDonors; ++i) {
-            int id_donor = molA_pattern->second[i].at(0).second;
+        for (int i = 0; i < numDonors; ++i) {
+            size_t id_donor = molA_pattern->second[i].at(0).second;
             int id_halogen = molA_pattern->second[i].at(1).second;
 
             RDGeom::Point3D pos_donor = conformer_molA.getAtomPos(id_donor);
@@ -753,7 +751,7 @@ void findHydrophobicInteraction(const Molecule& molA, const Molecule& molB, cons
         }
 
         // Estrazione delle coordinate da molB (accettori e atomi generici)
-        for (size_t i = 0; i < numAcceptors; ++i) {
+        for (int i = 0; i < numAcceptors; ++i) {
             int id_acceptor = molB_pattern->second[i].at(0).second;
             int id_any = molB_pattern->second[i].at(1).second;
 
@@ -802,7 +800,7 @@ void findHydrophobicInteraction(const Molecule& molA, const Molecule& molB, cons
         cudaMemcpy(d_any_z, any_z, numAcceptors * sizeof(float), cudaMemcpyHostToDevice);
 
         // Numero di stream e chunk
-        const int num_streams = 3; // Ad esempio, 3 stream
+        const int num_streams = 1; // Ad esempio, 3 stream
         cudaStream_t streams[num_streams];
         for (int i = 0; i < num_streams; ++i) {
             cudaStreamCreate(&streams[i]);
@@ -844,8 +842,6 @@ void findHydrophobicInteraction(const Molecule& molA, const Molecule& molB, cons
 
             // Copia i risultati parziali dalla GPU alla CPU per ogni chunk
             cudaMemcpyAsync(distances_host + lower * numAcceptors, d_distances + lower * numAcceptors, width * numAcceptors * sizeof(float), cudaMemcpyDeviceToHost, streams[stream]);
-            cudaMemcpyAsync(firstAngles_host + lower * numAcceptors, d_firstAngles + lower * numAcceptors, width * numAcceptors * sizeof(float), cudaMemcpyDeviceToHost, streams[stream]);
-            cudaMemcpyAsync(secondAngles_host + lower * numAcceptors, d_secondAngles + lower * numAcceptors, width * numAcceptors * sizeof(float), cudaMemcpyDeviceToHost, streams[stream]);
         }
 
         // Sincronizza tutti gli stream
@@ -1030,10 +1026,8 @@ void findHydrophobicInteraction(const Molecule& molA, const Molecule& molB, cons
     // Copia dei risultati dalla GPU alla CPU
     std::vector<float> distances_anion(numCations * numAnions);
     std::vector<float> distances_ring(numCations * numRings);
-    std::vector<float> angles_ring(numCations * numRings);
     cudaMemcpy(distances_anion.data(), d_distances_anion, numCations * numAnions * sizeof(float), cudaMemcpyDeviceToHost);
     cudaMemcpy(distances_ring.data(), d_distances_ring, numCations * numRings * sizeof(float), cudaMemcpyDeviceToHost);
-    cudaMemcpy(angles_ring.data(), d_angles_ring, numCations * numRings * sizeof(float), cudaMemcpyDeviceToHost);
 
     // Post-processamento per cationi-anioni
     for (int i = 0; i < numCations; ++i) {
@@ -1054,8 +1048,7 @@ void findHydrophobicInteraction(const Molecule& molA, const Molecule& molB, cons
     for (int i = 0; i < numCations; ++i) {
         for (int j = 0; j < numRings; ++j) {
             float distance = distances_ring[i * numRings + j];
-            float angle = angles_ring[i * numRings + j];
-            if (distance > 0 && angle > 0) {
+            if (distance > 0) {
                 std::string atom_id_molA, atom_id_molB;
                 getProtLigAtomID(molA, molB, i, j, atom_id_molA, atom_id_molB, protA_ligB);
                 if (printInteractions)
@@ -1091,7 +1084,6 @@ void findHydrophobicInteraction(const Molecule& molA, const Molecule& molB, cons
         auto molB_pattern = molB_patterns.patternMatches.find(Pattern::Aromatic_ring);
         unsigned int id_pointA, id_pointB;
         RDGeom::Point3D pos_pointA, pos_pointB;
-        float distRequired;
         float distance;
 
         if ((molA_pattern != molA_patterns.patternMatches.end()) && (molB_pattern != molB_patterns.patternMatches.end())){
@@ -1158,7 +1150,7 @@ void findHydrophobicInteraction(const Molecule& molA, const Molecule& molB, cons
 
                         int count = 0;
 
-                        for(int k = 0; k < pos_ringA.size(); k++){ //checks if the segment P1-centroidA intersects with every segment of ringA
+                        for(size_t k = 0; k < pos_ringA.size(); k++){ //checks if the segment P1-centroidA intersects with every segment of ringA
                             if(doSegmentsIntersect(P1, centroidA, pos_ringA.at(k), pos_ringA.at((k+1)%pos_ringA.size()))) count ++; //counts the number of intersections
                         }
 
@@ -1266,21 +1258,33 @@ void findHydrophobicInteraction(const Molecule& molA, const Molecule& molB, cons
         // every function will need to serch all the interactions of that type and for every one found call the output function that adds them to the CSV file
         // considering some interactions can be formed both ways (cation-anion ; anion-cation) we call the find function two times  
         
+        NVTX_PUSH("Hydrophobic Interaction");
         findHydrophobicInteraction(protein, ligand, proteinPatterns, ligandPatterns, proteinConformer, ligandConformer, true, printInteractions);
+        NVTX_POP(); // Hydrophobic Interaction
 
+        NVTX_PUSH("Hydrogen Bond");
         findHydrogenBond(protein, ligand, proteinPatterns, ligandPatterns, proteinConformer, ligandConformer, true, printInteractions);
         findHydrogenBond(ligand, protein, ligandPatterns, proteinPatterns, ligandConformer, proteinConformer, false, printInteractions);
+        NVTX_POP(); // Hydrogen Bond
 
+        NVTX_PUSH("Halogen Bond");
         findHalogenBond(protein, ligand, proteinPatterns, ligandPatterns, proteinConformer, ligandConformer, true, printInteractions);
         findHalogenBond(ligand, protein, ligandPatterns, proteinPatterns, ligandConformer, proteinConformer, false, printInteractions);
+        NVTX_POP(); // Halogen Bond
 
+        NVTX_PUSH("Ionic Interaction");
         findIonicInteraction(protein, ligand, proteinPatterns, ligandPatterns, proteinConformer, ligandConformer, true, printInteractions);
         findIonicInteraction(ligand, protein, ligandPatterns, proteinPatterns, ligandConformer, proteinConformer, false, printInteractions);
+        NVTX_POP(); // Ionic Interaction
 
+        NVTX_PUSH("Pi Stacking");
         findPiStacking(protein, ligand, proteinPatterns, ligandPatterns, proteinConformer, ligandConformer, true, printInteractions);
+        NVTX_POP(); // Pi Stacking
 
+        NVTX_PUSH("Metal Coordination");
         findMetalCoordination(protein, ligand, proteinPatterns, ligandPatterns, proteinConformer, ligandConformer, true, printInteractions);
         findMetalCoordination(ligand, protein, ligandPatterns, proteinPatterns, ligandConformer, proteinConformer, false, printInteractions);
+        NVTX_POP(); // Metal Coordination
     }
 
     // for eatch pattern of the Pattern enum looks if it is in the mol and saves all the matches in the MatchVectType field of the map inside FoundPatterns.
@@ -1360,6 +1364,10 @@ void findHydrophobicInteraction(const Molecule& molA, const Molecule& molB, cons
 
     int main(int argc, char *argv[]) {  // First argument: PDB file, then a non fixed number of Mol2 files
 
+        NVTX_PUSH("TotalProgram");
+
+        NVTX_PUSH("Input");
+
         std::vector<Molecule> molVector; // Vector of all the molecules with their name, (the first element is always a protein, the other are ligands)
 
         FoundPatterns proteinPatterns;  //Declares a FoundPattern struct where to save all the pattern found in the protein
@@ -1389,38 +1397,37 @@ void findHydrophobicInteraction(const Molecule& molA, const Molecule& molB, cons
             }
         }
 
-        overall_cpu_timer.start();
-        cpu_timer.start();
+        
         input(argv, argc, molVector);
-        cpu_timer.stop("Input function");
 
-        cpu_timer.start();
+        NVTX_POP(); // Input
+
+        NVTX_PUSH("IdentifyProtSubstructs");
+
         identifySubstructs(molVector.at(0), proteinPatterns); // Identifies all the istances of patterns inside the protein
         // printFoundPatterns(proteinPatterns);
-        cpu_timer.stop("IdentifySubstructs of protein");
+
+        NVTX_POP(); // IdentifyProtSubstructs
         
-        //cpu_timer.start();
         const RDKit::Conformer& proteinConformer = molVector.at(0).mol->getConformer(); //Conformer is a class that represents the 2D or 3D conformation of a molecule
-        //cpu_timer.stop("Get conformer of protein");
 
         for(int i = 1; i < argc - 1; i++){ // For every ligand
-            cpu_timer.start();
+
+            NVTX_PUSH("IdentifyLigandSubstructs");
             identifySubstructs(molVector.at(i), ligandPatterns); // Identifies all the istances of patterns inside the ligand
             // printFoundPatterns(ligandPatterns);
-            cpu_timer.stop("Identify Substruct of ligand #" + std::to_string(i));
+            NVTX_POP(); // IdentifyLigandSubstructs
             
-            //cpu_timer.start();
             const RDKit::Conformer& ligandConformer = molVector.at(i).mol->getConformer();  
-            //cpu_timer.stop("Get conformer of ligand #" + std::to_string(i));
 
-            cpu_timer.start();    
+            NVTX_PUSH("IdentifyInteractions");
             identifyInteractions(molVector.at(0), molVector.at(i), proteinPatterns, ligandPatterns, proteinConformer, ligandConformer, true); //Identifies all the interactions between protein and ligand and adds the to the CSV file
-            cpu_timer.stop("Find interactions #" + std::to_string(i));
+            NVTX_POP(); // IdentifyInteractions
 
             ligandPatterns.patternMatches.clear();
         }
 
-        overall_cpu_timer.stop("Overall time spent on the CPU for main operations");
+        NVTX_POP(); // TotalProgram
 
         return EXIT_SUCCESS;
     }
