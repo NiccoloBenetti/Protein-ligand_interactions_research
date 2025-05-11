@@ -418,7 +418,7 @@
     extern void launchIonicInteractionsKernel_CationAnion(float* d_cation_x, float* d_cation_y, float* d_cation_z,
                                                           float* d_anion_x, float* d_anion_y, float* d_anion_z,
                                                           float* d_distances, int numCations, int numAnions, 
-                                                          int blockSizeX, int blockSizeY, float maxDistance);
+                                                          int blockSizeX, int blockSizeY);
 
     extern void launchIonicInteractionsKernel_CationRing(float* d_cation_x, float* d_cation_y, float* d_cation_z,
                                                          float* d_ring_centroid_x, float* d_ring_centroid_y, float* d_ring_centroid_z,
@@ -702,9 +702,9 @@ void findHydrophobicInteraction(const Molecule& molA, const Molecule& molB, cons
     auto molA_pattern = molA_patterns.patternMatches.find(Pattern::Halogen_donor_halogen);
     auto molB_pattern = molB_patterns.patternMatches.find(Pattern::Halogen_acceptor_any);
     
-    float maxDistance = DISTANCE_HALOGENBOND;
-    float minAngle1 = MIN_ANGLE1_HALOGENBOND, maxAngle1 = MAX_ANGLE1_HALOGENBOND;
-    float minAngle2 = MIN_ANGLE2_HALOGENBOND, maxAngle2 = MAX_ANGLE2_HALOGENBOND;
+//   float maxDistance = DISTANCE_HALOGENBOND;
+//    float minAngle1 = MIN_ANGLE1_HALOGENBOND, maxAngle1 = MAX_ANGLE1_HALOGENBOND;
+//    float minAngle2 = MIN_ANGLE2_HALOGENBOND, maxAngle2 = MAX_ANGLE2_HALOGENBOND;
 
     if (molA_pattern != molA_patterns.patternMatches.end() && molB_pattern != molB_patterns.patternMatches.end()) {
         // Usa cudaMallocHost per allocare memoria pinned per i vettori
@@ -1011,12 +1011,12 @@ void findHydrophobicInteraction(const Molecule& molA, const Molecule& molB, cons
     // Lancia il kernel per il calcolo delle distanze tra cationi e anioni
     int blockSizeX = 16;
     int blockSizeY = 16;
-    float maxDistance = 4.0f;
+//    float maxDistance = 4.0f;
 
     launchIonicInteractionsKernel_CationAnion(d_cation_x, d_cation_y, d_cation_z,
                                           d_anion_x, d_anion_y, d_anion_z,
                                           d_distances_anion, numCations, numAnions,
-                                          blockSizeX, blockSizeY, maxDistance);
+                                          blockSizeX, blockSizeY);
 
 
     // Lancia il kernel per il calcolo delle distanze tra cationi e anelli aromatici
