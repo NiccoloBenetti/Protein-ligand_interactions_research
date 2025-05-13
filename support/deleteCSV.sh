@@ -1,20 +1,17 @@
 #!/bin/bash
+cd support/testing_samples || { echo "Cartella testing_samples non trovata"; exit 1; }
 
-# Cambia directory nella directory Testing, che si trova nella directory corrente
-cd support/testing_samples
-
-# Loop attraverso tutte le sottodirectory
-for dir in */; do
-    # Costruisce il percorso completo del file interaction.csv in ogni sottodirectory
+for dir in */ ; do
     interaction_csv="${dir}interactions.csv"
-    
-    # Controlla se il file interaction.csv esiste
-    if [[ -f "$interaction_csv" ]]; then
-        # Elimina il file interaction.csv
-        rm "$interaction_csv"
-        echo "Removed $interaction_csv"
-    else
-        echo "No interactions.csv file in $dir"
-    fi
-done
 
+    # file di profilazione (gpu / cpu)
+    gpu_rep=(${dir}*_run.nsys-rep)
+    nvtx_csvs=(${dir}*_nvtxsum.csv)
+    gpu_sqlite=(${dir}*_run.sqlite)
+
+    for file in "$interaction_csv" "$gpu_rep" "$cpu_rep" "$gpu_csv" "$cpu_csv" \
+                "$gpu_sqlite" "$cpu_sqlite" "$gpu_nvtxcsv" "${nvtx_csvs[@]}"; do                   # NEW
+        [[ -f $file ]] && { rm "$file"; echo "Removed $file"; }
+    done
+done
+    

@@ -34,7 +34,7 @@
 #include <GraphMol/RDKitBase.h>
 #include <GraphMol/Descriptors/MolDescriptors.h>
 #include <GraphMol/Substruct/SubstructMatch.h>
-
+#include "nvtx_tags.hpp"
 
 /** @defgroup HydrophobicInteraction Hydrophobic Interaction Constants
  *  @brief Thresholds used to identify hydrophobic interactions.
@@ -1167,21 +1167,33 @@ void identifyInteractions(const Molecule& protein, const Molecule& ligand, const
     // every function will need to serch all the interactions of that type and for every one found call the output function that adds them to the CSV file
     // considering some interactions can be formed both ways (cation-anion ; anion-cation) we call the find function two times  
     
+    NVTX_PUSH("Hydrophobic Interaction");
     findHydrophobicInteraction(protein, ligand, proteinPatterns, ligandPatterns, proteinConformer, ligandConformer, true);
+    NVTX_POP(); // Hydrophobic Interaction
 
+    NVTX_PUSH("Hydrogen Bond");
     findHydrogenBond(protein, ligand, proteinPatterns, ligandPatterns, proteinConformer, ligandConformer, true);
     findHydrogenBond(ligand, protein, ligandPatterns, proteinPatterns, ligandConformer, proteinConformer, false);
+    NVTX_POP(); // Hydrogen Bond
 
+    NVTX_PUSH("Halogen Bond");
     findHalogenBond(protein, ligand, proteinPatterns, ligandPatterns, proteinConformer, ligandConformer, true);
     findHalogenBond(ligand, protein, ligandPatterns, proteinPatterns, ligandConformer, proteinConformer, false);
+    NVTX_POP(); // Halogen Bond
 
+    NVTX_PUSH("Ionic Interaction");
     findIonicInteraction(protein, ligand, proteinPatterns, ligandPatterns, proteinConformer, ligandConformer, true);
     findIonicInteraction(ligand, protein, ligandPatterns, proteinPatterns, ligandConformer, proteinConformer, false);
+    NVTX_POP(); // Ionic Interaction
 
+    NVTX_PUSH("Pi Stacking");
     findPiStacking(protein, ligand, proteinPatterns, ligandPatterns, proteinConformer, ligandConformer, true);
+    NVTX_POP(); // Pi Stacking
 
+    NVTX_PUSH("Metal Coordination");
     findMetalCoordination(protein, ligand, proteinPatterns, ligandPatterns, proteinConformer, ligandConformer, true);
     findMetalCoordination(ligand, protein, ligandPatterns, proteinPatterns, ligandConformer, proteinConformer, false);
+    NVTX_POP(); // Metal Coordination
 }
 
 /**
@@ -1301,6 +1313,10 @@ void input(char **argv, int argc, std::vector<Molecule> &molVector) {
  */
 int main(int argc, char *argv[]) {  // First argument: PDB file, then a non fixed number of Mol2 files
 
+    NVTX_PUSH("TotalProgram");
+
+    NVTX_PUSH("Input");
+
     std::vector<Molecule> molVector; ///< Vector of all the molecules with their name, (the first element is always a protein, the other are ligands)
     FoundPatterns proteinPatterns;  ///< Declares a FoundPattern struct where to save all the pattern found in the protein
     FoundPatterns ligandPatterns;   ///< Declares a FoundPattern struct where to save all the pattern found in the ligand, the same will be used for all ligand passed in input.
@@ -1328,20 +1344,33 @@ int main(int argc, char *argv[]) {  // First argument: PDB file, then a non fixe
 
     input(argv, argc, molVector);
 
+    NVTX_POP(); // Input
+
+    NVTX_PUSH("IdentifyProtSubstructs");
+
     identifySubstructs(molVector.at(0), proteinPatterns); // Identifies all the istances of patterns inside the protein
     // printFoundPatterns(proteinPatterns);
     
+    NVTX_POP(); // IdentifyProtSubstructs
+
     const RDKit::Conformer& proteinConformer = molVector.at(0).mol->getConformer(); //Conformer is a class that represents the 2D or 3D conformation of a molecule
 
     for(int i = 1; i < argc - 1; i++){ // For every ligand
+        NVTX_PUSH("IdentifyLigandSubstructs");
         identifySubstructs(molVector.at(i), ligandPatterns); // Identifies all the istances of patterns inside the ligand
         // printFoundPatterns(ligandPatterns);
+        NVTX_POP(); // IdentifyLigandSubstructs
         
         const RDKit::Conformer& ligandConformer = molVector.at(i).mol->getConformer();  
         
+        NVTX_PUSH("IdentifyInteractions");
         identifyInteractions(molVector.at(0), molVector.at(i), proteinPatterns, ligandPatterns, proteinConformer, ligandConformer); //Identifies all the interactions between protein and ligand and adds the to the CSV file
+        NVTX_POP(); // IdentifyInteractions
+
         ligandPatterns.patternMatches.clear();
     } 
+
+    NVTX_POP(); // TotalProgram
 
     return EXIT_SUCCESS;
 }

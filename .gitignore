@@ -6,4 +6,5 @@ src/esempioInput_10gs_protein.pdb
 .vscode/
 rdkit_paths.cmake
 doxygen_docs/
+support/performance/
 support/diff/

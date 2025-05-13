@@ -3,6 +3,18 @@ project(interaction VERSION 5.0 LANGUAGES CXX CUDA)
 
 find_package(CUDAToolkit REQUIRED)
 
+# 1) Opzione per abilitare/disabilitare l’instrumentazione NVTX
+option(USE_NVTX "Enable NVTX annotations" ON)
+
+# 2) Trova nvToolsExt (parte del CUDA Toolkit)
+if(USE_NVTX)
+    find_library(NVTX_LIBRARY nvToolsExt PATHS ${CUDAToolkit_LIBRARY_DIR})
+    if(NOT NVTX_LIBRARY)
+        message(FATAL_ERROR "nvToolsExt library not found")
+    endif()
+    add_compile_definitions(USE_NVTX)
+endif()
+
 include_directories(${CUDAToolkit_INCLUDE_DIRS})
 
 set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -O3 --expt-relaxed-constexpr --expt-extended-lambda")
@@ -50,6 +62,16 @@ list(APPEND source_files
 
 # Aggiungi l'eseguibile principale
 add_executable(interaction ${header_files} ${source_files})
+
+# 3) Collega nvToolsExt solo se l’utente vuole le annotazioni
+if(USE_NVTX)
+    target_link_libraries(interaction PUBLIC ${NVTX_LIBRARY})
+endif()
+
+# 4) Aggiungi -lineinfo ai soli file CUDA (serve ai profiler NVIDIA)
+target_compile_options(interaction PRIVATE
+    $<$<COMPILE_LANGUAGE:CUDA>:-lineinfo>
+)
 
 # Collega le librerie RDKit e CUDA all'eseguibile principale
 target_link_libraries(interaction PUBLIC
