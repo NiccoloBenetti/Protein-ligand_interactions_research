@@ -1,26 +1,17 @@
-#!/usr/bin/env bash
-set -euo pipefail
+#!/bin/bash
+cd support/testing_samples || { echo "Cartella testing_samples non trovata"; exit 1; }
 
-# Trova la directory in cui si trova questo script
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+for dir in */ ; do
+    interaction_csv="${dir}interactions.csv"
 
-# Passa in testing_samples relativa allo script
-TARGET_DIR="${SCRIPT_DIR}/testing_samples"
+    # file di profilazione (gpu / cpu)
+    gpu_rep=(${dir}*_run.nsys-rep)
+    nvtx_csvs=(${dir}*_nvtxsum.csv)
+    gpu_sqlite=(${dir}*_run.sqlite)
 
-if [[ ! -d "${TARGET_DIR}" ]]; then
-  echo "Errore: directory testing_samples non trovata in ${SCRIPT_DIR}" >&2
-  exit 1
-fi
-
-cd "${TARGET_DIR}"
-
-# Loop su tutte le sottodirectory e rimuovi interactions.csv se esiste
-for dir in */; do
-  CSV_FILE="${dir}interactions.csv"
-  if [[ -f "${CSV_FILE}" ]]; then
-    echo "Rimuovo ${CSV_FILE}"
-    rm "${CSV_FILE}"
-  else
-    echo "Nessun interactions.csv in ${dir}"
-  fi
+    for file in "$interaction_csv" "$gpu_rep" "$cpu_rep" "$gpu_csv" "$cpu_csv" \
+                "$gpu_sqlite" "$cpu_sqlite" "$gpu_nvtxcsv" "${nvtx_csvs[@]}"; do             
+        [[ -f $file ]] && { rm "$file"; echo "Removed $file"; }
+    done
 done
+    
