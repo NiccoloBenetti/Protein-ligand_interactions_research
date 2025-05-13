@@ -1,20 +1,26 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -euo pipefail
 
-# Cambia directory nella directory Testing, che si trova nella directory corrente
-cd testing_samples
+# Trova la directory in cui si trova questo script
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Loop attraverso tutte le sottodirectory
+# Passa in testing_samples relativa allo script
+TARGET_DIR="${SCRIPT_DIR}/testing_samples"
+
+if [[ ! -d "${TARGET_DIR}" ]]; then
+  echo "Errore: directory testing_samples non trovata in ${SCRIPT_DIR}" >&2
+  exit 1
+fi
+
+cd "${TARGET_DIR}"
+
+# Loop su tutte le sottodirectory e rimuovi interactions.csv se esiste
 for dir in */; do
-    # Costruisce il percorso completo del file interaction.csv in ogni sottodirectory
-    interaction_csv="${dir}interactions.csv"
-    
-    # Controlla se il file interaction.csv esiste
-    if [[ -f "$interaction_csv" ]]; then
-        # Elimina il file interaction.csv
-        rm "$interaction_csv"
-        echo "Removed $interaction_csv"
-    else
-        echo "No interactions.csv file in $dir"
-    fi
+  CSV_FILE="${dir}interactions.csv"
+  if [[ -f "${CSV_FILE}" ]]; then
+    echo "Rimuovo ${CSV_FILE}"
+    rm "${CSV_FILE}"
+  else
+    echo "Nessun interactions.csv in ${dir}"
+  fi
 done
-
