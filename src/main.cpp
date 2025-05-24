@@ -493,7 +493,7 @@ void findHydrophobicInteraction(const Molecule& molA, const Molecule& molB, cons
         cudaMalloc(&d_distances, tmpA->second.size() * tmpB->second.size() * sizeof(float));
 
         // Numero di stream e chunk
-        const int num_streams = 1;
+        const int num_streams = NUM_STREAMS;
         cudaStream_t streams[num_streams];
         for (int i = 0; i < num_streams; ++i) {
             cudaStreamCreate(&streams[i]);
@@ -519,8 +519,8 @@ void findHydrophobicInteraction(const Molecule& molA, const Molecule& molB, cons
             cudaMemcpyAsync(d_posA_z + lowerA, posA_z + lowerA, widthA * sizeof(float), cudaMemcpyHostToDevice, streams[stream]);
 
             // Dimensioni dei blocchi e griglie
-            int blockSizeX = 16;
-            int blockSizeY = 16;
+            int blockSizeX = BLOCKSIZEX;
+            int blockSizeY = BLOCKSIZEX;
             dim3 threadsPerBlock(blockSizeX, blockSizeY);
             dim3 blocksPerGrid((widthA + blockSizeX - 1) / blockSizeX, 
                                (tmpB->second.size() + blockSizeY - 1) / blockSizeY);
@@ -646,8 +646,8 @@ void findHydrophobicInteraction(const Molecule& molA, const Molecule& molB, cons
         cudaMemcpy(d_acceptor_z, acceptor_z.data(), acceptor_z.size() * sizeof(float), cudaMemcpyHostToDevice);
 
         // Definizione delle dimensioni di blocchi e griglie per il kernel CUDA
-        int blockSizeX = 16;
-        int blockSizeY = 16;
+        int blockSizeX = BLOCKSIZEX;
+        int blockSizeY = BLOCKSIZEX;
         dim3 threadsPerBlock(blockSizeX, blockSizeY);
         dim3 blocksPerGrid((donor_x.size() + blockSizeX - 1) / blockSizeX,
                            (acceptor_x.size() + blockSizeY - 1) / blockSizeY);
@@ -800,7 +800,7 @@ void findHydrophobicInteraction(const Molecule& molA, const Molecule& molB, cons
         cudaMemcpy(d_any_z, any_z, numAcceptors * sizeof(float), cudaMemcpyHostToDevice);
 
         // Numero di stream e chunk
-        const int num_streams = 1; // Ad esempio, 3 stream
+        const int num_streams = NUM_STREAMS; ///TODO: fare simulazioni per trovare il numero giusto di stream
         cudaStream_t streams[num_streams];
         for (int i = 0; i < num_streams; ++i) {
             cudaStreamCreate(&streams[i]);
@@ -825,8 +825,8 @@ void findHydrophobicInteraction(const Molecule& molA, const Molecule& molB, cons
             cudaMemcpyAsync(d_halogen_z + lower, halogen_z + lower, width * sizeof(float), cudaMemcpyHostToDevice, streams[stream]);
 
             // Dimensioni dei blocchi e griglie
-            int blockSizeX = 16;
-            int blockSizeY = 16;
+            int blockSizeX = BLOCKSIZEX;
+            int blockSizeY = BLOCKSIZEX;
             dim3 threadsPerBlock(blockSizeX, blockSizeY);
             dim3 blocksPerGrid((width + blockSizeX - 1) / blockSizeX, 
                                (numAcceptors + blockSizeY - 1) / blockSizeY);
@@ -1005,8 +1005,8 @@ void findHydrophobicInteraction(const Molecule& molA, const Molecule& molB, cons
     cudaMemcpy(d_ring_normal_z, ring_normal_z.data(), numRings * sizeof(float), cudaMemcpyHostToDevice);
 
     // Lancia il kernel per il calcolo delle distanze tra cationi e anioni
-    int blockSizeX = 16;
-    int blockSizeY = 16;
+    int blockSizeX = BLOCKSIZEX;
+    int blockSizeY = BLOCKSIZEX;
 //    float maxDistance = 4.0f;
 
     launchIonicInteractionsKernel_CationAnion(d_cation_x, d_cation_y, d_cation_z,
@@ -1218,8 +1218,8 @@ void findHydrophobicInteraction(const Molecule& molA, const Molecule& molB, cons
         cudaMemcpy(d_chelated_z, chelated_z.data(), numChelated * sizeof(float), cudaMemcpyHostToDevice);
 
         // Lancia il kernel CUDA per calcolare le distanze
-        int blockSizeX = 16;
-        int blockSizeY = 16;
+        int blockSizeX = BLOCKSIZEX;
+        int blockSizeY = BLOCKSIZEX;
         launchMetalBondKernel(d_metal_x, d_metal_y, d_metal_z,
                                       d_chelated_x, d_chelated_y, d_chelated_z,
                                       d_distances, numMetals, numChelated, blockSizeX, blockSizeY, 0); //stream momentaneamente a 0

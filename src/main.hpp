@@ -39,6 +39,13 @@ extern "C" {
 // METAL COORDINATION
 #define DISTANCE_METAL 2.8
 
+
+// PARAMETRI DI CONFIGURAZIONE CUDA (GPU)
+#define BLOCKSIZEX 16
+#define BLOCKSIZEY 16
+#define NUM_STREAMS 1 
+
+
 // Dichiarazione di launchDistanceKernel2D con il parametro stream
 void launchHydrophobicBondKernel(float* d_posA_x, float* d_posA_y, float* d_posA_z,
                             float* d_posB_x, float* d_posB_y, float* d_posB_z,
