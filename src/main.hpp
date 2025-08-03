@@ -41,8 +41,8 @@ extern "C" {
 
 
 // PARAMETRI DI CONFIGURAZIONE CUDA (GPU)
-#define BLOCKSIZEX 16
-#define BLOCKSIZEY 16
+#define BLOCKSIZEX 8
+#define BLOCKSIZEY 1
 #define NUM_STREAMS 1 
 
 

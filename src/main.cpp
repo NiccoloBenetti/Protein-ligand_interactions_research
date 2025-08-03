@@ -27,6 +27,10 @@
     #include <GraphMol/Descriptors/MolDescriptors.h>
     #include <GraphMol/Substruct/SubstructMatch.h>
 
+    extern int num_streams = NUM_STREAMS;
+    extern int blockDimX = BLOCKSIZEX;
+    extern int blockDimY = BLOCKSIZEY;
+
     enum class Pattern {
         Hydrophobic,
         Hydrogen_donor_H,
@@ -493,7 +497,7 @@ void findHydrophobicInteraction(const Molecule& molA, const Molecule& molB, cons
         cudaMalloc(&d_distances, tmpA->second.size() * tmpB->second.size() * sizeof(float));
 
         // Numero di stream e chunk
-        const int num_streams = NUM_STREAMS;
+
         cudaStream_t streams[num_streams];
         for (int i = 0; i < num_streams; ++i) {
             cudaStreamCreate(&streams[i]);
@@ -800,7 +804,6 @@ void findHydrophobicInteraction(const Molecule& molA, const Molecule& molB, cons
         cudaMemcpy(d_any_z, any_z, numAcceptors * sizeof(float), cudaMemcpyHostToDevice);
 
         // Numero di stream e chunk
-        const int num_streams = NUM_STREAMS; ///TODO: fare simulazioni per trovare il numero giusto di stream
         cudaStream_t streams[num_streams];
         for (int i = 0; i < num_streams; ++i) {
             cudaStreamCreate(&streams[i]);
@@ -1315,49 +1318,77 @@ void findHydrophobicInteraction(const Molecule& molA, const Molecule& molB, cons
 
     // input(char**, int, std::vector<Molecule> &) : takes the command line arguments (files names and number or arguments) 
     // and does the parsing for each file saving a ROMol and the name of that molecule in the last parameter (a vector of struct Molecule passed by ref) 
+    
+
+    int parseIntOrDefault(const char* arg, int defaultVal) {
+        try {
+            return std::stoi(arg);
+        } 
+        catch (...) {
+            return defaultVal;
+        }
+    }
+
+    void parseBlockDim(const std::string& input, int& x, int& y) {
+        size_t xpos = input.find('x');
+        if (xpos != std::string::npos) {
+            x = std::stoi(input.substr(0, xpos));
+            y = std::stoi(input.substr(xpos + 1));
+        }
+    }
+    
     void input(char **argv, int argc, std::vector<Molecule> &molVector) {
         FILE *file;
         char *fileContent = NULL;
 
         for(int i = 1; i < argc; i++){
-            file = fopen(argv[i], "rb");
-            if (!file) {
-                std::cout << "Can't open the file " << argv[i] << std::endl;
+            std::string arg = argv[i];
+            if (arg == "--streams" && i + 1 < argc) {
+                num_streams = parseIntOrDefault(argv[++i], NUM_STREAMS);
             }
-            else{
-                // Gets the size of the file:
-                fseek(file, 0, SEEK_END); 
-                long fileSize = ftell(file); 
-                fseek(file, 0, SEEK_SET); 
+            else if (arg == "--blockDim" && i + 1 < argc) {
+                parseBlockDim(argv[++i], blockDimX, blockDimY);
+            }
+            else {
+                file = fopen(argv[i], "rb");
+                if (!file) {
+                    std::cout << "Can't open the file " << argv[i] << std::endl;
+                }
+                else{
+                    // Gets the size of the file:
+                    fseek(file, 0, SEEK_END); 
+                    long fileSize = ftell(file); 
+                    fseek(file, 0, SEEK_SET); 
 
-                fileContent = (char *)malloc(fileSize + 1); 
-                if (fileContent == NULL) {
-                    std::cout << "Malloc error" << std::endl;
+                    fileContent = (char *)malloc(fileSize + 1); 
+                    if (fileContent == NULL) {
+                        std::cout << "Malloc error" << std::endl;
+                        fclose(file);
+                        return;
+                    }
+
+                    fread(fileContent, 1, fileSize, file); 
+                    (fileContent)[fileSize] = '\0'; 
+
                     fclose(file);
-                    return;
+
+                    std::unique_ptr<RDKit::ROMol> mol;
+
+                    if(i == 1){  // if file is a .pdb
+                        mol.reset(RDKit::PDBBlockToMol(fileContent, true, false));
+                    }
+                    else{   //if file is a .mol2
+                        mol.reset(RDKit::Mol2BlockToMol(fileContent, true, false));
+                    }
+
+                    if(mol) {
+                        molVector.emplace_back(removeFileExtension(argv[i]), mol.release());
+                    }
+
+                    //printMolOverview(*(molVector.back().mol), false);
+
+                    free(fileContent);
                 }
-
-                fread(fileContent, 1, fileSize, file); 
-                (fileContent)[fileSize] = '\0'; 
-
-                fclose(file);
-
-                std::unique_ptr<RDKit::ROMol> mol;
-
-                if(i == 1){  // if file is a .pdb
-                    mol.reset(RDKit::PDBBlockToMol(fileContent, true, false));
-                }
-                else{   //if file is a .mol2
-                    mol.reset(RDKit::Mol2BlockToMol(fileContent, true, false));
-                }
-
-                if(mol) {
-                    molVector.emplace_back(removeFileExtension(argv[i]), mol.release());
-                }
-
-                //printMolOverview(*(molVector.back().mol), false);
-
-                free(fileContent);
             }
         }
     }
@@ -1411,7 +1442,7 @@ void findHydrophobicInteraction(const Molecule& molA, const Molecule& molB, cons
         
         const RDKit::Conformer& proteinConformer = molVector.at(0).mol->getConformer(); //Conformer is a class that represents the 2D or 3D conformation of a molecule
 
-        for(int i = 1; i < argc - 1; i++){ // For every ligand
+        for(int i = 1; i < molVector.size(); i++){ // For every ligand
 
             NVTX_PUSH("IdentifyLigandSubstructs");
             identifySubstructs(molVector.at(i), ligandPatterns); // Identifies all the istances of patterns inside the ligand

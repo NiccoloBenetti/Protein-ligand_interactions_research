@@ -3,14 +3,11 @@ cd support/testing_samples || { echo "Cartella testing_samples non trovata"; exi
 
 for dir in */ ; do
     interaction_csv="${dir}interactions.csv"
+    rep=( ${dir}*.nsys-rep )
+    nvtx_csvs=( ${dir}*_nvtxsum.csv )
+    sqlite=( ${dir}*.sqlite )
 
-    # file di profilazione (gpu / cpu)
-    gpu_rep=(${dir}*_run.nsys-rep)
-    nvtx_csvs=(${dir}*_nvtxsum.csv)
-    gpu_sqlite=(${dir}*_run.sqlite)
-
-    for file in "$interaction_csv" "$gpu_rep" "$cpu_rep" "$gpu_csv" "$cpu_csv" \
-                "$gpu_sqlite" "$cpu_sqlite" "$gpu_nvtxcsv" "${nvtx_csvs[@]}"; do             
+    for file in "$interaction_csv" "$rep" "$sqlite" "${nvtx_csvs[@]}"; do             
         [[ -f $file ]] && { rm "$file"; echo "Removed $file"; }
     done
 done
