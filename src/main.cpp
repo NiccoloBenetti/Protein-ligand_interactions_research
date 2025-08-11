@@ -27,6 +27,8 @@
     #include <GraphMol/Descriptors/MolDescriptors.h>
     #include <GraphMol/Substruct/SubstructMatch.h>
 
+    static std::size_t g_interaction_count = 0;
+
     extern int num_streams = NUM_STREAMS;
     extern int blockDimX = BLOCKSIZEX;
     extern int blockDimY = BLOCKSIZEY;
@@ -100,6 +102,8 @@
         else {
             std::cerr << "File was not open correctly for writing." << std::endl;
         }
+
+        ++g_interaction_count;
     }
 
     // ----------------------------------------------------------- STRUCTS -------------------------------------------------------------------------
@@ -524,7 +528,7 @@ void findHydrophobicInteraction(const Molecule& molA, const Molecule& molB, cons
 
             // Dimensioni dei blocchi e griglie
             int blockSizeX = BLOCKSIZEX;
-            int blockSizeY = BLOCKSIZEX;
+            int blockSizeY = BLOCKSIZEY;
             dim3 threadsPerBlock(blockSizeX, blockSizeY);
             dim3 blocksPerGrid((widthA + blockSizeX - 1) / blockSizeX, 
                                (tmpB->second.size() + blockSizeY - 1) / blockSizeY);
@@ -651,7 +655,7 @@ void findHydrophobicInteraction(const Molecule& molA, const Molecule& molB, cons
 
         // Definizione delle dimensioni di blocchi e griglie per il kernel CUDA
         int blockSizeX = BLOCKSIZEX;
-        int blockSizeY = BLOCKSIZEX;
+        int blockSizeY = BLOCKSIZEY;
         dim3 threadsPerBlock(blockSizeX, blockSizeY);
         dim3 blocksPerGrid((donor_x.size() + blockSizeX - 1) / blockSizeX,
                            (acceptor_x.size() + blockSizeY - 1) / blockSizeY);
@@ -829,7 +833,7 @@ void findHydrophobicInteraction(const Molecule& molA, const Molecule& molB, cons
 
             // Dimensioni dei blocchi e griglie
             int blockSizeX = BLOCKSIZEX;
-            int blockSizeY = BLOCKSIZEX;
+            int blockSizeY = BLOCKSIZEY;
             dim3 threadsPerBlock(blockSizeX, blockSizeY);
             dim3 blocksPerGrid((width + blockSizeX - 1) / blockSizeX, 
                                (numAcceptors + blockSizeY - 1) / blockSizeY);
@@ -1009,7 +1013,7 @@ void findHydrophobicInteraction(const Molecule& molA, const Molecule& molB, cons
 
     // Lancia il kernel per il calcolo delle distanze tra cationi e anioni
     int blockSizeX = BLOCKSIZEX;
-    int blockSizeY = BLOCKSIZEX;
+    int blockSizeY = BLOCKSIZEY;
 //    float maxDistance = 4.0f;
 
     launchIonicInteractionsKernel_CationAnion(d_cation_x, d_cation_y, d_cation_z,
@@ -1222,7 +1226,7 @@ void findHydrophobicInteraction(const Molecule& molA, const Molecule& molB, cons
 
         // Lancia il kernel CUDA per calcolare le distanze
         int blockSizeX = BLOCKSIZEX;
-        int blockSizeY = BLOCKSIZEX;
+        int blockSizeY = BLOCKSIZEY;
         launchMetalBondKernel(d_metal_x, d_metal_y, d_metal_z,
                                       d_chelated_x, d_chelated_y, d_chelated_z,
                                       d_distances, numMetals, numChelated, blockSizeX, blockSizeY, 0); //stream momentaneamente a 0
@@ -1459,6 +1463,9 @@ void findHydrophobicInteraction(const Molecule& molA, const Molecule& molB, cons
         }
 
         NVTX_POP(); // TotalProgram
+
+        std::cout << "\nInterazioni totali trovate: " << g_interaction_count << '\n';
+
 
         return EXIT_SUCCESS;
     }
