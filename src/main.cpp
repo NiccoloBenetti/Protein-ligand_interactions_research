@@ -34,7 +34,20 @@
 #include <GraphMol/RDKitBase.h>
 #include <GraphMol/Descriptors/MolDescriptors.h>
 #include <GraphMol/Substruct/SubstructMatch.h>
+#include <GraphMol/MolOps.h>
 #include "nvtx_tags.hpp"
+#include <GraphMol/RWMol.h>
+#include <GraphMol/FileParsers/MolSupplier.h>
+
+/**
+ * @brief A static variable that keeps track of the count of interactions.
+ * 
+ * This variable is used to store the total number of interactions that have 
+ * occurred during the execution of the program.
+ */
+static std::size_t g_interaction_count = 0;
+
+
 
 /** @defgroup HydrophobicInteraction Hydrophobic Interaction Constants
  *  @brief Thresholds used to identify hydrophobic interactions.
@@ -221,6 +234,8 @@ void output(std::string name_molA, std::string name_molB, std::string atom_id_mo
     else {
         std::cerr << "File was not open correctly for writing." << std::endl;
     }
+
+    ++g_interaction_count;
 }
 /** @} */
 
@@ -281,6 +296,7 @@ struct Molecule {
 };
 
 // ---------------------------------------------------- OTHER UTILITIES -----------------------------------------------------------------------
+
 
 /**
  * @brief List of predefined SMARTS patterns associated with chemical interaction roles.
@@ -1234,6 +1250,20 @@ void identifySubstructs(Molecule& molecule, FoundPatterns &foundPatterns){
 
 // ------------------------------------------------------- MAIN and INPUT ----------------------------------------------------------------------------------------
 
+static inline void sanitize_light_inplace(RDKit::RWMol &rw) {
+    unsigned int failedOp = RDKit::MolOps::SANITIZE_NONE;
+    const unsigned int ops =
+        RDKit::MolOps::SANITIZE_FINDRADICALS |
+        RDKit::MolOps::SANITIZE_KEKULIZE |
+        RDKit::MolOps::SANITIZE_SETAROMATICITY |
+        RDKit::MolOps::SANITIZE_SETCONJUGATION |
+        RDKit::MolOps::SANITIZE_SETHYBRIDIZATION |
+        RDKit::MolOps::SANITIZE_SYMMRINGS;
+
+    // firma corretta: (mol, failedOp[out], ops[in], catchErrors)
+    RDKit::MolOps::sanitizeMol(rw, failedOp, ops);
+}
+
 /**
  * @brief Parses molecular structure files (.pdb and .mol2) from command line arguments.
  * 
@@ -1250,48 +1280,71 @@ void identifySubstructs(Molecule& molecule, FoundPatterns &foundPatterns){
  */
 void input(char **argv, int argc, std::vector<Molecule> &molVector) {
     FILE *file;
-    char *fileContent = NULL;
+    char *fileContent = nullptr;
 
-    for(int i = 1; i < argc; i++){
+    for (int i = 1; i < argc; i++) {
         file = fopen(argv[i], "rb");
         if (!file) {
-            std::cout << "Can't open the file " << argv[i] << std::endl;
+            std::cerr << "Can't open the file " << argv[i] << std::endl;
+            continue;
         }
-        else{
-            // Gets the size of the file:
-            fseek(file, 0, SEEK_END); 
-            long fileSize = ftell(file); 
-            fseek(file, 0, SEEK_SET); 
 
-            fileContent = (char *)malloc(fileSize + 1); 
-            if (fileContent == NULL) {
-                std::cout << "Malloc error" << std::endl;
-                fclose(file);
-                return;
-            }
+        fseek(file, 0, SEEK_END);
+        long fileSize = ftell(file);
+        fseek(file, 0, SEEK_SET);
 
-            fread(fileContent, 1, fileSize, file); 
-            (fileContent)[fileSize] = '\0'; 
-
+        fileContent = (char*)malloc(fileSize + 1);
+        if (!fileContent) {
+            std::cerr << "Malloc error\n";
             fclose(file);
-
-            std::unique_ptr<RDKit::ROMol> mol;
-
-            if(i == 1){  // if file is a .pdb
-                mol.reset(RDKit::PDBBlockToMol(fileContent, true, false));
-            }
-            else{   //if file is a .mol2
-                mol.reset(RDKit::Mol2BlockToMol(fileContent, true, false));
-            }
-
-            if(mol) {
-                molVector.emplace_back(removeFileExtension(argv[i]), mol.release());
-            }
-
-            //printMolOverview(*(molVector.back().mol), false);
-
-            free(fileContent);
+            return;
         }
+
+        fread(fileContent, 1, fileSize, file);
+        fileContent[fileSize] = '\0';
+        fclose(file);
+
+        std::unique_ptr<RDKit::ROMol> mol;
+
+        try {
+            // Parse SENZA sanitize e SENZA rimuovere H (per evitare eccezioni di valenza)
+            if (i == 1) {
+                // PROTEINA (PDB)
+                mol.reset(RDKit::PDBBlockToMol(fileContent, /*sanitize=*/false, /*removeHs=*/false));
+            } else {
+                // LIGANDO (MOL2)
+                mol.reset(RDKit::Mol2BlockToMol(fileContent, /*sanitize=*/false, /*removeHs=*/false));
+            }
+            if (!mol) throw std::runtime_error("RDKit returned null molecule");
+
+            // Passa a RWMol per le operazioni MolOps
+            RDKit::RWMol rw(*mol);
+
+            // sanitize "leggera" (inizializza anche le RingInfo)
+            try {
+                sanitize_light_inplace(rw);
+            } catch (const std::exception &se) {
+                std::cerr << "Warning: sanitizeMol(light) failed for " << argv[i]
+                          << " -> " << se.what() << "\n";
+            }
+
+            // Aggiungi H (in-place). addCoords=true crea coord. per H se mancano.
+            RDKit::MolOps::addHs(rw, /*explicitOnly=*/false, /*addCoords=*/true);
+
+            // Torna a ROMol per lo storage
+            mol = std::make_unique<RDKit::ROMol>(rw);
+
+        } catch (const std::exception &e) {
+            std::cerr << "Failed to parse " << argv[i] << ": " << e.what() << "\n";
+            free(fileContent);
+            continue;
+        }
+
+        if (mol) {
+            molVector.emplace_back(removeFileExtension(argv[i]), mol.release());
+        }
+
+        free(fileContent);
     }
 }
 
@@ -1349,7 +1402,7 @@ int main(int argc, char *argv[]) {  // First argument: PDB file, then a non fixe
     NVTX_PUSH("IdentifyProtSubstructs");
 
     identifySubstructs(molVector.at(0), proteinPatterns); // Identifies all the istances of patterns inside the protein
-    // printFoundPatterns(proteinPatterns);
+    printFoundPatterns(proteinPatterns);
     
     NVTX_POP(); // IdentifyProtSubstructs
 
@@ -1358,7 +1411,7 @@ int main(int argc, char *argv[]) {  // First argument: PDB file, then a non fixe
     for(int i = 1; i < argc - 1; i++){ // For every ligand
         NVTX_PUSH("IdentifyLigandSubstructs");
         identifySubstructs(molVector.at(i), ligandPatterns); // Identifies all the istances of patterns inside the ligand
-        // printFoundPatterns(ligandPatterns);
+        printFoundPatterns(ligandPatterns);
         NVTX_POP(); // IdentifyLigandSubstructs
         
         const RDKit::Conformer& ligandConformer = molVector.at(i).mol->getConformer();  
@@ -1371,6 +1424,8 @@ int main(int argc, char *argv[]) {  // First argument: PDB file, then a non fixe
     } 
 
     NVTX_POP(); // TotalProgram
+
+    std::cout << "\nNuber of found interactions: " << g_interaction_count << '\n';
 
     return EXIT_SUCCESS;
 }
