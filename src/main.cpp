@@ -466,6 +466,9 @@ void findHydrophobicInteraction(const Molecule& molA, const Molecule& molB, cons
         cudaMallocHost(&posB_y, tmpB->second.size() * sizeof(float));
         cudaMallocHost(&posB_z, tmpB->second.size() * sizeof(float));
 
+        // Serve a tenere traccia degli indici degli atomi di A e B
+        std::vector<unsigned int> idxA, idxB;
+
         // Allocazione della memoria pinned per le distanze
         cudaMallocHost(&distances_host, tmpA->second.size() * tmpB->second.size() * sizeof(float));
 
@@ -473,6 +476,7 @@ void findHydrophobicInteraction(const Molecule& molA, const Molecule& molB, cons
         size_t idx = 0;
         for (const auto& matchVectA : tmpA->second) {
             unsigned int indx_molA = matchVectA.at(0).second;
+            idxA.push_back(indx_molA);
             RDGeom::Point3D posA = conformer_molA.getAtomPos(indx_molA);
             posA_x[idx] = posA.x;
             posA_y[idx] = posA.y;
@@ -484,6 +488,7 @@ void findHydrophobicInteraction(const Molecule& molA, const Molecule& molB, cons
         idx = 0;
         for (const auto& matchVectB : tmpB->second) {
             unsigned int indx_molB = matchVectB.at(0).second;
+            idxB.push_back(indx_molB);
             RDGeom::Point3D posB = conformer_molB.getAtomPos(indx_molB);
             posB_x[idx] = posB.x;
             posB_y[idx] = posB.y;
@@ -557,7 +562,7 @@ void findHydrophobicInteraction(const Molecule& molA, const Molecule& molB, cons
             for (size_t j = 0; j < tmpB->second.size(); ++j) {
                 if (distances_host[i * tmpB->second.size() + j] > 0) {
                     std::string atom_id_molA, atom_id_molB;
-                    getProtLigAtomID(molA, molB, i, j, atom_id_molA, atom_id_molB, protA_ligB);
+                        getProtLigAtomID(molA, molB, idxA[i], idxB[j], atom_id_molA, atom_id_molB, protA_ligB);
                     if (printInteractions)
                         std::cout << "Hydrophobic\n";
                     output(molA.name, molB.name, atom_id_molA, "Hydrophobic", posA_x[i], posA_y[i], posA_z[i],
@@ -600,11 +605,13 @@ void findHydrophobicInteraction(const Molecule& molA, const Molecule& molB, cons
         std::vector<float> donor_x, donor_y, donor_z;
         std::vector<float> hydrogen_x, hydrogen_y, hydrogen_z;
         std::vector<float> acceptor_x, acceptor_y, acceptor_z;
+        std::vector<unsigned int> idxA, idxB;
 
         // Estrazione delle coordinate da molA (donatore e idrogeno)
         for (const auto& matchVect_molA : molA_pattern->second) {
             int id_donor = matchVect_molA.at(0).second;
             int id_hydrogen = matchVect_molA.at(1).second;
+            idxA.push_back(id_hydrogen);
 
             RDGeom::Point3D pos_donor = conformer_molA.getAtomPos(id_donor);
             RDGeom::Point3D pos_hydrogen = conformer_molA.getAtomPos(id_hydrogen);
@@ -621,6 +628,7 @@ void findHydrophobicInteraction(const Molecule& molA, const Molecule& molB, cons
         // Estrazione delle coordinate da molB (accettore)
         for (const auto& matchVect_molB : molB_pattern->second) {
             int id_acceptor = matchVect_molB.at(0).second;
+            idxB.push_back(id_acceptor);
             RDGeom::Point3D pos_acceptor = conformer_molB.getAtomPos(id_acceptor);
 
             acceptor_x.push_back(pos_acceptor.x);
@@ -683,7 +691,7 @@ void findHydrophobicInteraction(const Molecule& molA, const Molecule& molB, cons
 
                 if (distance > 0) {
                     std::string atom_id_molA, atom_id_molB;
-                    getProtLigAtomID(molA, molB, i, j, atom_id_molA, atom_id_molB, protA_ligB);
+                    getProtLigAtomID(molA, molB, idxA[i], idxB[j], atom_id_molA, atom_id_molB, protA_ligB);
                     if (printInteractions)
                         std::cout << "Hydrogen bond\n";
                     output(molA.name, molB.name, atom_id_molA, "Hydrogen donor", hydrogen_x[i], hydrogen_y[i], hydrogen_z[i],
@@ -723,6 +731,7 @@ void findHydrophobicInteraction(const Molecule& molA, const Molecule& molB, cons
         float *acceptor_x, *acceptor_y, *acceptor_z;
         float *any_x, *any_y, *any_z;
         float *distances_host, *firstAngles_host, *secondAngles_host;
+        std::vector<unsigned int> idxA, idxB;
 
         int numDonors = molA_pattern->second.size();
         int numAcceptors = molB_pattern->second.size();
@@ -749,6 +758,7 @@ void findHydrophobicInteraction(const Molecule& molA, const Molecule& molB, cons
         for (int i = 0; i < numDonors; ++i) {
             size_t id_donor = molA_pattern->second[i].at(0).second;
             int id_halogen = molA_pattern->second[i].at(1).second;
+            idxA.push_back(id_donor);
 
             RDGeom::Point3D pos_donor = conformer_molA.getAtomPos(id_donor);
             RDGeom::Point3D pos_halogen = conformer_molA.getAtomPos(id_halogen);
@@ -766,6 +776,7 @@ void findHydrophobicInteraction(const Molecule& molA, const Molecule& molB, cons
         for (int i = 0; i < numAcceptors; ++i) {
             int id_acceptor = molB_pattern->second[i].at(0).second;
             int id_any = molB_pattern->second[i].at(1).second;
+            idxB.push_back(id_acceptor);
 
             RDGeom::Point3D pos_acceptor = conformer_molB.getAtomPos(id_acceptor);
             RDGeom::Point3D pos_any = conformer_molB.getAtomPos(id_any);
@@ -865,7 +876,7 @@ void findHydrophobicInteraction(const Molecule& molA, const Molecule& molB, cons
             for (int j = 0; j < numAcceptors; ++j) {
                 if (distances_host[i * numAcceptors + j] > 0) {  // Solo interazioni valide (distanze positive)
                     std::string atom_id_molA, atom_id_molB;
-                    getProtLigAtomID(molA, molB, i, j, atom_id_molA, atom_id_molB, protA_ligB);
+                    getProtLigAtomID(molA, molB, idxA[i], idxB[j], atom_id_molA, atom_id_molB, protA_ligB);
                     if (printInteractions)
                         std::cout << "Halogen bond\n";
                     output(molA.name, molB.name, atom_id_molA, "Halogen donor", halogen_x[i], halogen_y[i], halogen_z[i],
@@ -927,11 +938,13 @@ void findHydrophobicInteraction(const Molecule& molA, const Molecule& molB, cons
     std::vector<float> anion_x, anion_y, anion_z;
     std::vector<float> ring_centroid_x, ring_centroid_y, ring_centroid_z;
     std::vector<float> ring_normal_x, ring_normal_y, ring_normal_z;
+    std::vector<unsigned int> idxA, idxB, idxB_ring;
 
     // Estrai le coordinate dei cationi
     if (tmpA != molA_patterns.patternMatches.end()) {
         for (const auto& matchVectA : tmpA->second) {
             int indx_molA = matchVectA.at(0).second;
+            idxA.push_back(indx_molA);
             RDGeom::Point3D pos_a = conformer_molA.getAtomPos(indx_molA);
             cation_x.push_back(pos_a.x);
             cation_y.push_back(pos_a.y);
@@ -943,6 +956,7 @@ void findHydrophobicInteraction(const Molecule& molA, const Molecule& molB, cons
     if (tmpB_anion != molB_patterns.patternMatches.end()) {
         for (const auto& matchVectB : tmpB_anion->second) {
             int indx_molB = matchVectB.at(0).second;
+            idxB.push_back(indx_molB);
             RDGeom::Point3D pos_b = conformer_molB.getAtomPos(indx_molB);
             anion_x.push_back(pos_b.x);
             anion_y.push_back(pos_b.y);
@@ -959,6 +973,7 @@ void findHydrophobicInteraction(const Molecule& molA, const Molecule& molB, cons
                 RDGeom::Point3D pos_b = conformer_molB.getAtomPos(indx_molB);
                 pos_points_ring.push_back(pos_b);
             }
+            idxB_ring.push_back(matchVectB.back().second);
 
             RDGeom::Point3D centroid = calculateCentroid(pos_points_ring);
             RDGeom::Point3D normal = calculateNormalVector(pos_points_ring.at(0), pos_points_ring.at(1), pos_points_ring.at(2));
@@ -1046,7 +1061,7 @@ void findHydrophobicInteraction(const Molecule& molA, const Molecule& molB, cons
             float distance = distances_anion[i * numAnions + j];
             if (distance > 0) {
                 std::string atom_id_molA, atom_id_molB;
-                getProtLigAtomID(molA, molB, i, j, atom_id_molA, atom_id_molB, protA_ligB);
+                getProtLigAtomID(molA, molB, idxA[i], idxB[j], atom_id_molA, atom_id_molB, protA_ligB);
                 if (printInteractions)
                     std::cout << "Ionic\n";
                 output(molA.name, molB.name, atom_id_molA, "Cation", cation_x[i], cation_y[i], cation_z[i],
@@ -1061,7 +1076,7 @@ void findHydrophobicInteraction(const Molecule& molA, const Molecule& molB, cons
             float distance = distances_ring[i * numRings + j];
             if (distance > 0) {
                 std::string atom_id_molA, atom_id_molB;
-                getProtLigAtomID(molA, molB, i, j, atom_id_molA, atom_id_molB, protA_ligB);
+                getProtLigAtomID(molA, molB, idxA[i], idxB_ring[j], atom_id_molA, atom_id_molB, protA_ligB);
                 if (printInteractions)
                     std::cout << "Ionic with aromatic ring\n";
                 output(molA.name, molB.name, atom_id_molA, "Cation", cation_x[i], cation_y[i], cation_z[i],
@@ -1184,10 +1199,13 @@ void findHydrophobicInteraction(const Molecule& molA, const Molecule& molB, cons
     if ((tmpA != molA_patterns.patternMatches.end()) && (tmpB != molB_patterns.patternMatches.end())) {
         std::vector<float> metal_x, metal_y, metal_z;
         std::vector<float> chelated_x, chelated_y, chelated_z;
+        std::vector<unsigned int> idxA, idxB;
+
 
         // Estrai le coordinate per i metalli
         for (const auto& matchVectA : tmpA->second) {
             unsigned int indx_molA = matchVectA.at(0).second;
+            idxA.push_back(indx_molA);
             RDGeom::Point3D pos_a = conformer_molA.getAtomPos(indx_molA);
             metal_x.push_back(pos_a.x);
             metal_y.push_back(pos_a.y);
@@ -1197,6 +1215,7 @@ void findHydrophobicInteraction(const Molecule& molA, const Molecule& molB, cons
         // Estrai le coordinate per i chelati
         for (const auto& matchVectB : tmpB->second) {
             unsigned int indx_molB = matchVectB.at(0).second;
+            idxB.push_back(indx_molB);
             RDGeom::Point3D pos_b = conformer_molB.getAtomPos(indx_molB);
             chelated_x.push_back(pos_b.x);
             chelated_y.push_back(pos_b.y);
@@ -1244,7 +1263,7 @@ void findHydrophobicInteraction(const Molecule& molA, const Molecule& molB, cons
             for (int j = 0; j < numChelated; ++j) {
                 if (distances[i * numChelated + j] > 0) { 
                     std::string atom_id_molA, atom_id_molB;
-                    getProtLigAtomID(molA, molB, i, j, atom_id_molA, atom_id_molB, protA_ligB);
+                    getProtLigAtomID(molA, molB, idxA[i], idxB[j], atom_id_molA, atom_id_molB, protA_ligB);
                     if (printInteractions)
                         std::cout << "Metal\n";
                     output(molA.name, molB.name, atom_id_molA, "Metal", metal_x[i], metal_y[i], metal_z[i],

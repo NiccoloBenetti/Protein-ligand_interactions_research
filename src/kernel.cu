@@ -10,7 +10,7 @@
     // Calcola gli indici bidimensionali del thread all'interno della griglia
     int i = blockIdx.x * blockDim.x + threadIdx.x;  // Indice per posA (molecola A)
     int j = blockIdx.y * blockDim.y + threadIdx.y;  // Indice per posB (molecola B)
-    int distance;
+    float distance;
 
     // Verifica che gli indici siano validi
     if (i < numA && j < numB) {
@@ -159,7 +159,7 @@ __global__ void calculateCationRingKernel(float* cation_x, float* cation_y, floa
             float angle = acosf(dotProduct / (magnitude_cation * magnitude_normal)) * 180.0f / M_PI;
 
             // Verifica se l'angolo è compreso nell'intervallo richiesto
-            if (angle >= MIN_ANGLE_IONIC && angle <= MAX_ANGLE_IONIC) {
+            if (!(angle >= MIN_ANGLE_IONIC && angle <= MAX_ANGLE_IONIC) || angle == MIN_ANGLE_IONIC || angle == MAX_ANGLE_IONIC) {
                 distances[i * numRings + j] = distance;
                 angles[i * numRings + j] = angle;
             } else {
@@ -177,7 +177,7 @@ __global__ void calculateMetalBondKernel(float* posA_x, float* posA_y, float* po
     // Calcola gli indici bidimensionali del thread all'interno della griglia
     int i = blockIdx.x * blockDim.x + threadIdx.x;  // Indice per posA (molecola A)
     int j = blockIdx.y * blockDim.y + threadIdx.y;  // Indice per posB (molecola B)
-    int distance;
+    float distance;
 
     // Verifica che gli indici siano validi
     if (i < numA && j < numB) {
