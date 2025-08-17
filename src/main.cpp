@@ -419,7 +419,7 @@ extern void launchHydrophobicBondKernel(float* d_posA_x, float* d_posA_y, float*
 extern void launchHydrogenBondKernel(float* d_donor_x, float* d_donor_y, float* d_donor_z,
                                      float* d_hydrogen_x, float* d_hydrogen_y, float* d_hydrogen_z,
                                      float* d_acceptor_x, float* d_acceptor_y, float* d_acceptor_z,
-                                     float* d_distances, float* d_angles,
+                                     float* d_distances,
                                      int numDonors, int numAcceptors,
                                      int blockSizeX, int blockSizeY);
 
@@ -427,7 +427,7 @@ extern void launchHalogenBondKernel(float* d_donor_x, float* d_donor_y, float* d
                                     float* d_halogen_x, float* d_halogen_y, float* d_halogen_z,
                                     float* d_acceptor_x, float* d_acceptor_y, float* d_acceptor_z,
                                     float* d_any_x, float* d_any_y, float* d_any_z,
-                                    float* d_distances, float* d_firstAngles, float* d_secondAngles,
+                                    float* d_distances,
                                     int numDonors, int numAcceptors,
                                     int blockSizeX, int blockSizeY, cudaStream_t stream);
 
@@ -656,7 +656,7 @@ launchHydrophobicBondKernel(
         float *d_donor_x, *d_donor_y, *d_donor_z;
         float *d_hydrogen_x, *d_hydrogen_y, *d_hydrogen_z;
         float *d_acceptor_x, *d_acceptor_y, *d_acceptor_z;
-        float *d_distances, *d_angles;
+        float *d_distances;
 
         cudaMalloc(&d_donor_x, donor_x.size() * sizeof(float));
         cudaMalloc(&d_donor_y, donor_y.size() * sizeof(float));
@@ -668,7 +668,6 @@ launchHydrophobicBondKernel(
         cudaMalloc(&d_acceptor_y, acceptor_y.size() * sizeof(float));
         cudaMalloc(&d_acceptor_z, acceptor_z.size() * sizeof(float));
         cudaMalloc(&d_distances, donor_x.size() * acceptor_x.size() * sizeof(float));
-        cudaMalloc(&d_angles, donor_x.size() * acceptor_x.size() * sizeof(float));
 
         // Copia dei dati sulla GPU
         cudaMemcpy(d_donor_x, donor_x.data(), donor_x.size() * sizeof(float), cudaMemcpyHostToDevice);
@@ -689,7 +688,7 @@ launchHydrogenBondKernel(
     d_donor_x, d_donor_y, d_donor_z,
     d_hydrogen_x, d_hydrogen_y, d_hydrogen_z,
     d_acceptor_x, d_acceptor_y, d_acceptor_z,
-    d_distances, d_angles,
+    d_distances,
     static_cast<int>(donor_x.size()),     // numA (Y)
     static_cast<int>(acceptor_x.size()),  // numB (X)
     blockSizeX, blockSizeY
@@ -728,7 +727,6 @@ launchHydrogenBondKernel(
         cudaFree(d_acceptor_y);
         cudaFree(d_acceptor_z);
         cudaFree(d_distances);
-        cudaFree(d_angles);
     }
 }
 
@@ -747,7 +745,7 @@ launchHydrogenBondKernel(
         float *halogen_x, *halogen_y, *halogen_z;
         float *acceptor_x, *acceptor_y, *acceptor_z;
         float *any_x, *any_y, *any_z;
-        float *distances_host, *firstAngles_host, *secondAngles_host;
+        float *distances_host;
         std::vector<unsigned int> idxA, idxB;
 
         int numDonors = molA_pattern->second.size();
@@ -766,10 +764,8 @@ launchHydrogenBondKernel(
         cudaMallocHost(&any_y, numAcceptors * sizeof(float));
         cudaMallocHost(&any_z, numAcceptors * sizeof(float));
 
-        // Allocazione della memoria pinned per le distanze e angoli
+        // Allocazione della memoria pinned per le distanze
         cudaMallocHost(&distances_host, numDonors * numAcceptors * sizeof(float));
-        cudaMallocHost(&firstAngles_host, numDonors * numAcceptors * sizeof(float));
-        cudaMallocHost(&secondAngles_host, numDonors * numAcceptors * sizeof(float));
 
         // Estrazione delle coordinate da molA (donatori e alogeni)
         for (int i = 0; i < numDonors; ++i) {
@@ -812,7 +808,7 @@ launchHydrogenBondKernel(
         float *d_halogen_x, *d_halogen_y, *d_halogen_z;
         float *d_acceptor_x, *d_acceptor_y, *d_acceptor_z;
         float *d_any_x, *d_any_y, *d_any_z;
-        float *d_distances, *d_firstAngles, *d_secondAngles;
+        float *d_distances;
 
         cudaMalloc(&d_donor_x, numDonors * sizeof(float));
         cudaMalloc(&d_donor_y, numDonors * sizeof(float));
@@ -827,8 +823,6 @@ launchHydrogenBondKernel(
         cudaMalloc(&d_any_y, numAcceptors * sizeof(float));
         cudaMalloc(&d_any_z, numAcceptors * sizeof(float));
         cudaMalloc(&d_distances, numDonors * numAcceptors * sizeof(float));
-        cudaMalloc(&d_firstAngles, numDonors * numAcceptors * sizeof(float));
-        cudaMalloc(&d_secondAngles, numDonors * numAcceptors * sizeof(float));
 
         // Trasferisci **B** (accettori e any) solo una volta
         cudaMemcpy(d_acceptor_x, acceptor_x, numAcceptors * sizeof(float), cudaMemcpyHostToDevice);
@@ -873,8 +867,6 @@ launchHalogenBondKernel(
     d_acceptor_x, d_acceptor_y, d_acceptor_z,
     d_any_x,      d_any_y,      d_any_z,
     d_distances + static_cast<size_t>(lower) * numAcceptors,
-    d_firstAngles + static_cast<size_t>(lower) * numAcceptors,
-    d_secondAngles + static_cast<size_t>(lower) * numAcceptors,
     static_cast<int>(width),   // numA = donors (Y)
     numAcceptors,              // numB = acceptors (X)
     blockSizeX, blockSizeY, streams[stream]
@@ -919,8 +911,6 @@ launchHalogenBondKernel(
         cudaFree(d_any_y);
         cudaFree(d_any_z);
         cudaFree(d_distances);
-        cudaFree(d_firstAngles);
-        cudaFree(d_secondAngles);
 
         // Pulizia della memoria host allocata con cudaMallocHost
         cudaFreeHost(donor_x);
@@ -936,8 +926,6 @@ launchHalogenBondKernel(
         cudaFreeHost(any_y);
         cudaFreeHost(any_z);
         cudaFreeHost(distances_host);
-        cudaFreeHost(firstAngles_host);
-        cudaFreeHost(secondAngles_host);
 
         // Distruzione degli stream
         for (int i = 0; i < num_streams; ++i) {
@@ -1291,7 +1279,7 @@ launchHalogenBondKernel(
             RDGeom::Point3D normalB  (nB_x[j], nB_y[j], nB_z[j]);
 
             // SANDWICH
-            if (distance <= DISTANCE_SANDWICH &&
+            if (distance > 0.0f && distance <= DISTANCE_SANDWICH &&
                 angleIn(planesAngle, MIN_PLANES_ANGLE_SANDWICH, MAX_PLANES_ANGLE_SANDWICH) &&
                 angleIn(ncentA, MIN_NORMAL_CENTROID_ANGLE_SANDWICH, MAX_NORMAL_CENTROID_ANGLE_SANDWICH) &&
                 angleIn(ncentB, MIN_NORMAL_CENTROID_ANGLE_SANDWICH, MAX_NORMAL_CENTROID_ANGLE_SANDWICH))
@@ -1305,7 +1293,7 @@ launchHalogenBondKernel(
                        "Pi Stacking", distance, protA_ligB);
             }
             // T-SHAPE (+ check inside-polygon sul piano di A per il centroide di B)
-            else if (distance <= DISTANCE_TSHAPE &&
+            else if (distance > 0.0f && distance <= DISTANCE_TSHAPE &&
                      angleIn(planesAngle, MIN_PLANES_ANGLE_TSHAPE, MAX_PLANES_ANGLE_TSHAPE) &&
                      angleIn(ncentA, MIN_NORMAL_CENTROID_ANGLE_TSHAPE, MAX_NORMAL_CENTROID_ANGLE_TSHAPE) &&
                      angleIn(ncentB, MIN_NORMAL_CENTROID_ANGLE_TSHAPE, MAX_NORMAL_CENTROID_ANGLE_TSHAPE))

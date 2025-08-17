@@ -22,90 +22,122 @@ __global__ void calculateHydrophobicBondKernel(float* posA_x, float* posA_y, flo
     }
 }
 
-__global__ void calculateHydrogenBondKernel(float* donor_x, float* donor_y, float* donor_z,
-                                            float* hydrogen_x, float* hydrogen_y, float* hydrogen_z,
-                                            float* acceptor_x, float* acceptor_y, float* acceptor_z,
-                                            float* distances, float* angles, int numDonors, int numAcceptors)
+// --- DOPO (COERENTE: B→X=j, A→Y=i) ---
+#ifndef HBOND_MIN_COS
+// 130° di default; per 120° usa -DHBOND_MIN_COS=-0.5f
+#define HBOND_MIN_COS -0.64278764f
+#endif
+
+#ifndef HBOND_RELAX_IF_NO_H
+// metti -DHBOND_RELAX_IF_NO_H=1 se vuoi il fallback "solo distanza"
+#define HBOND_RELAX_IF_NO_H 0
+#endif
+
+__global__ void calculateHydrogenBondKernel(const float* __restrict__ donor_x,
+                                            const float* __restrict__ donor_y,
+                                            const float* __restrict__ donor_z,
+                                            const float* __restrict__ hydrogen_x,
+                                            const float* __restrict__ hydrogen_y,
+                                            const float* __restrict__ hydrogen_z,
+                                            const float* __restrict__ acceptor_x,
+                                            const float* __restrict__ acceptor_y,
+                                            const float* __restrict__ acceptor_z,
+                                            float* __restrict__ distances,
+                                            int numDonors, int numAcceptors)
 {
-    // B -> X (acceptors) ; A -> Y (donors)
-    int j = blockIdx.x * blockDim.x + threadIdx.x;  // accettore
-    int i = blockIdx.y * blockDim.y + threadIdx.y;  // donatore
+    // B -> X (acceptors), A -> Y (donors)  **come negli altri kernel**
+    const int j = blockIdx.x * blockDim.x + threadIdx.x;  // accettore
+    const int i = blockIdx.y * blockDim.y + threadIdx.y;  // donatore
+    if (i >= numDonors || j >= numAcceptors) return;
 
-    if (i < numDonors && j < numAcceptors) {
-        float dx = donor_x[i] - acceptor_x[j];
-        float dy = donor_y[i] - acceptor_y[j];
-        float dz = donor_z[i] - acceptor_z[j];
-        float distance = sqrtf(dx * dx + dy * dy + dz * dz);
+    const int idx = i * numAcceptors + j;
 
-        float hx = hydrogen_x[i], hy = hydrogen_y[i], hz = hydrogen_z[i];
-        float dhx = donor_x[i] - hx, dhy = donor_y[i] - hy, dhz = donor_z[i] - hz;
-        float ahx = acceptor_x[j] - hx, ahy = acceptor_y[j] - hy, ahz = acceptor_z[j] - hz;
+    // ---- distanza^2 e early-out ----
+    const float dx = donor_x[i] - acceptor_x[j];
+    const float dy = donor_y[i] - acceptor_y[j];
+    const float dz = donor_z[i] - acceptor_z[j];
+    const float d2 = dx*dx + dy*dy + dz*dz;
+    const float thr2 = (float)(DISTANCE_HYDROGENBOND * DISTANCE_HYDROGENBOND);
+    if (d2 > thr2) { distances[idx] = -1.0f; return; }
 
-        float dotProduct = dhx * ahx + dhy * ahy + dhz * ahz;
-        float mag_dh = sqrtf(dhx * dhx + dhy * dhy + dhz * dhz);
-        float mag_ah = sqrtf(ahx * ahx + ahy * ahy + ahz * ahz);
-        float angle = acosf(dotProduct / (mag_dh * mag_ah)) * 180.0f / M_PI;
+    // ---- vettori per l’angolo D–H…H–A ----
+    const float hx = hydrogen_x[i], hy = hydrogen_y[i], hz = hydrogen_z[i];
+    float dhx = donor_x[i]    - hx, dhy = donor_y[i]    - hy, dhz = donor_z[i]    - hz;
+    float ahx = acceptor_x[j] - hx, ahy = acceptor_y[j] - hy, ahz = acceptor_z[j] - hz;
 
-        if (distance <= DISTANCE_HYDROGENBOND &&
-            angle >= MIN_ANGLE_HYDROGENBOND && angle <= MAX_ANGLE_HYDROGENBOND)
-        {
-            distances[i * numAcceptors + j] = distance;
-            angles[i * numAcceptors + j]    = angle;
-        } else {
-            distances[i * numAcceptors + j] = -1.0f;
-        }
-    }
+    // Fallback opzionale se l’H non è disponibile/valido (p.es. acque senza H espliciti)
+    const float dh2 = dhx*dhx + dhy*dhy + dhz*dhz;
+#if HBOND_RELAX_IF_NO_H
+    if (dh2 < 1e-12f) { distances[idx] = sqrtf(d2); return; }
+#else
+    if (dh2 < 1e-12f) { distances[idx] = -1.0f; return; }
+#endif
+
+    const float ah2 = ahx*ahx + ahy*ahy + ahz*ahz;
+    const float inv_dh = rsqrtf(dh2 + 1e-20f);
+    const float inv_ah = rsqrtf(ah2 + 1e-20f);
+    float cosang = (dhx*ahx + dhy*ahy + dhz*ahz) * (inv_dh * inv_ah);
+    cosang = fminf(1.f, fmaxf(-1.f, cosang));
+
+    // Angolo minimo: cosθ ≤ HBOND_MIN_COS (130° default)
+    if (cosang > HBOND_MIN_COS) { distances[idx] = -1.0f; return; }
+
+    distances[idx] = sqrtf(d2);
 }
+
 
 __global__ void calculateHalogenBondKernel(float* donor_x, float* donor_y, float* donor_z,
                                            float* halogen_x, float* halogen_y, float* halogen_z,
                                            float* acceptor_x, float* acceptor_y, float* acceptor_z,
                                            float* any_x, float* any_y, float* any_z,
-                                           float* distances, float* firstAngles, float* secondAngles,
-                                           int numDonors, int numAcceptors)
+                                           float* distances,int numDonors, int numAcceptors)
 {
-    // B -> X (acceptors) ; A -> Y (donors)
-    int j = blockIdx.x * blockDim.x + threadIdx.x;  // accettore
-    int i = blockIdx.y * blockDim.y + threadIdx.y;  // donatore
+    const int i = blockIdx.x * blockDim.x + threadIdx.x;  // donatore
+    const int j = blockIdx.y * blockDim.y + threadIdx.y;  // accettore
+    if (i >= numDonors || j >= numAcceptors) return;
 
-    if (i < numDonors && j < numAcceptors) {
-        float dx = donor_x[i] - acceptor_x[j];
-        float dy = donor_y[i] - acceptor_y[j];
-        float dz = donor_z[i] - acceptor_z[j];
-        float distance = sqrtf(dx * dx + dy * dy + dz * dz);
+    const int idx = i * numAcceptors + j;
 
-        float hx = halogen_x[i], hy = halogen_y[i], hz = halogen_z[i];
-        float ax = acceptor_x[j], ay = acceptor_y[j], az = acceptor_z[j];
-        float anyx = any_x[j], anyy = any_y[j], anyz = any_z[j];
+    // ---- distanza^2 e early-out ----
+    const float dx = donor_x[i] - acceptor_x[j];
+    const float dy = donor_y[i] - acceptor_y[j];
+    const float dz = donor_z[i] - acceptor_z[j];
+    const float d2 = dx*dx + dy*dy + dz*dz;
+    const float thr2 = (float)(DISTANCE_HALOGENBOND * DISTANCE_HALOGENBOND);
+    if (d2 > thr2) { distances[idx] = -1.0f; return; }
 
-        // angolo 1: Donor–Halogen–Acceptor
-        float dhx = donor_x[i] - hx, dhy = donor_y[i] - hy, dhz = donor_z[i] - hz;
-        float ahx = ax - hx,        ahy = ay - hy,        ahz = az - hz;
-        float dotProduct1 = dhx * ahx + dhy * ahy + dhz * ahz;
-        float mag_dh = sqrtf(dhx * dhx + dhy * dhy + dhz * dhz);
-        float mag_ah = sqrtf(ahx * ahx + ahy * ahy + ahz * ahz);
-        float firstAngle = acosf(dotProduct1 / (mag_dh * mag_ah)) * 180.0f / M_PI;
+    // Vettori per l’angolo 1: D–Hal … Hal–A
+    const float hx = halogen_x[i], hy = halogen_y[i], hz = halogen_z[i];
+    const float ax = acceptor_x[j], ay = acceptor_y[j], az = acceptor_z[j];
+    const float anyx = any_x[j], anyy = any_y[j], anyz = any_z[j];
 
-        // angolo 2: Acceptor–Halogen–Any
-        float ahhx = ax - hx, ahhy = ay - hy, ahhz = az - hz;
-        float aax = anyx - ax, aay = anyy - ay, aaz = anyz - az;
-        float dotProduct2 = ahhx * aax + ahhy * aay + ahhz * aaz;
-        float mag_ahh = sqrtf(ahhx * ahhx + ahhy * ahhy + ahhz * ahhz);
-        float mag_aa = sqrtf(aax * aax + aay * aay + aaz * aaz);
-        float secondAngle = acosf(dotProduct2 / (mag_ahh * mag_aa)) * 180.0f / M_PI;
+    const float dhx = donor_x[i]-hx,  dhy = donor_y[i]-hy,  dhz = donor_z[i]-hz;
+    const float ahx = ax - hx,        ahy = ay - hy,        ahz = az - hz;
 
-        if (distance <= DISTANCE_HALOGENBOND &&
-            firstAngle  >= MIN_ANGLE1_HALOGENBOND && firstAngle  <= MAX_ANGLE1_HALOGENBOND &&
-            secondAngle >= MIN_ANGLE2_HALOGENBOND && secondAngle <= MAX_ANGLE2_HALOGENBOND)
-        {
-            distances[i * numAcceptors + j]    = distance;
-            firstAngles[i * numAcceptors + j]  = firstAngle;
-            secondAngles[i * numAcceptors + j] = secondAngle;
-        } else {
-            distances[i * numAcceptors + j] = -1.0f;
-        }
-    }
+    float inv_dh = rsqrtf(dhx*dhx + dhy*dhy + dhz*dhz + 1e-20f);
+    float inv_ah = rsqrtf(ahx*ahx + ahy*ahy + ahz*ahz + 1e-20f);
+    float cos1 = (dhx*ahx + dhy*ahy + dhz*ahz) * (inv_dh * inv_ah);
+    cos1 = fminf(1.f, fmaxf(-1.f, cos1));
+
+    // 130–180° => cosθ ≤ cos(130°)
+    if (cos1 > -0.64278764f) { distances[idx] = -1.0f; return; }
+
+    // Vettori per l’angolo 2: Hal–A … A–Any
+    const float ahhx = ax - hx, ahhy = ay - hy, ahhz = az - hz;
+    const float aax  = anyx - ax, aay  = anyy - ay, aaz  = anyz - az;
+
+    float inv_ahh = rsqrtf(ahhx*ahhx + ahhy*ahhy + ahhz*ahhz + 1e-20f);
+    float inv_aa  = rsqrtf(aax*aax   + aay*aay   + aaz*aaz   + 1e-20f);
+    float cos2 = (ahhx*aax + ahhy*aay + ahhz*aaz) * (inv_ahh * inv_aa);
+    cos2 = fminf(1.f, fmaxf(-1.f, cos2));
+
+    // 80–140° => cos(140°) ≤ cosθ ≤ cos(80°)
+    if (!(cos2 >= -0.76604444f && cos2 <= 0.17364818f)) { distances[idx] = -1.0f; return; }
+
+    // ---- sqrt/acos solo per i validi ----
+    distances[idx] = sqrtf(d2);
 }
+
 
 __global__ void calculateCationAnionKernel(float* cation_x, float* cation_y, float* cation_z,
                                            float* anion_x,  float* anion_y,  float* anion_z,
@@ -173,47 +205,63 @@ __global__ void calculatePiStackingKernel(
     float* __restrict__ normalCentroidAnglesB,
     int numA, int numB)
 {
-    // B -> X (rings B) ; A -> Y (rings A)
+    // B -> X (j), A -> Y (i)  **COERENTE CON TUTTO IL PROGETTO**
     const int j = blockIdx.x * blockDim.x + threadIdx.x; // ring B
     const int i = blockIdx.y * blockDim.y + threadIdx.y; // ring A
     if (i >= numA || j >= numB) return;
 
+    const int idx = i * numB + j;
+
+    auto poison = [&](void){
+        distances[idx]              = -1.0f;
+        planesAngles[idx]           = 999.0f;
+        normalCentroidAnglesA[idx]  = 999.0f;
+        normalCentroidAnglesB[idx]  = 999.0f;
+    };
+
+    // ---- distanza^2 e early-out con soglia T-shape ----
     const float cax = centroidA_x[i], cay = centroidA_y[i], caz = centroidA_z[i];
     const float cbx = centroidB_x[j], cby = centroidB_y[j], cbz = centroidB_z[j];
+    const float vx = cbx - cax, vy = cby - cay, vz = cbz - caz;
+    const float v2 = vx*vx + vy*vy + vz*vz;
+    const float thr2 = (float)(DISTANCE_TSHAPE * DISTANCE_TSHAPE);
+    if (v2 > thr2) { poison(); return; }
 
-    const float vx = cbx - cax;
-    const float vy = cby - cay;
-    const float vz = cbz - caz;
-    const float vmag = sqrtf(vx*vx + vy*vy + vz*vz) + 1e-20f;
-
+    // ---- normali normalizzate ----
     float nax = normalA_x[i], nay = normalA_y[i], naz = normalA_z[i];
     float nbx = normalB_x[j], nby = normalB_y[j], nbz = normalB_z[j];
+    const float inv_nA = rsqrtf(nax*nax + nay*nay + naz*naz + 1e-20f);
+    const float inv_nB = rsqrtf(nbx*nbx + nby*nby + nbz*nbz + 1e-20f);
+    nax *= inv_nA; nay *= inv_nA; naz *= inv_nA;
+    nbx *= inv_nB; nby *= inv_nB; nbz *= inv_nB;
 
-    const float nAmag = sqrtf(nax*nax + nay*nay + naz*naz) + 1e-20f;
-    const float nBmag = sqrtf(nbx*nbx + nby*nby + nbz*nbz) + 1e-20f;
-    nax /= nAmag; nay /= nAmag; naz /= nAmag;
-    nbx /= nBmag; nby /= nBmag; nbz /= nBmag;
-
-    const float dist = vmag;
-
+    // cos(piano–piano), usiamo |cos|
     float cos_nn = nax*nbx + nay*nby + naz*nbz;
     cos_nn = fminf(1.f, fmaxf(-1.f, cos_nn));
-    const float anglePlanes = acosf(fabsf(cos_nn)) * 180.0f / M_PI;
+    const float abs_cnn = fabsf(cos_nn);
 
-    const float inv_vmag = 1.0f / vmag;
-    float cos_a = (nax*vx + nay*vy + naz*vz) * inv_vmag;
-    float cos_b = (nbx*(-vx) + nby*(-vy) + nbz*(-vz)) * inv_vmag;
+    // Prefiltro unione finestre: [0–30°] U [50–90°]
+    // => |cos| ≥ cos30° (~0.8660)  OR  |cos| ≤ cos50° (~0.6428)
+    if (!(abs_cnn >= 0.86602540f || abs_cnn <= 0.64278764f)) { poison(); return; }
+
+    // cos(normale–centroide) per A→B e B→A, con |cos|
+    const float inv_v = rsqrtf(v2 + 1e-20f);
+    float cos_a = (nax*vx + nay*vy + naz*vz) * inv_v;
+    float cos_b = (nbx*(-vx) + nby*(-vy) + nbz*(-vz)) * inv_v;
     cos_a = fminf(1.f, fmaxf(-1.f, cos_a));
     cos_b = fminf(1.f, fmaxf(-1.f, cos_b));
-    const float angleA = acosf(fabsf(cos_a)) * 180.0f / M_PI;
-    const float angleB = acosf(fabsf(cos_b)) * 180.0f / M_PI;
 
-    const int idx = i * numB + j;
-    distances[idx]             = dist;
-    planesAngles[idx]          = anglePlanes;
-    normalCentroidAnglesA[idx] = angleA;
-    normalCentroidAnglesB[idx] = angleB;
+    // Prefiltro 0–33° ⇒ |cos| ≥ cos33° (~0.8387) per entrambi
+    if (fabsf(cos_a) < 0.83867057f || fabsf(cos_b) < 0.83867057f) { poison(); return; }
+
+    // ---- solo ora sqrt/acos (per scrivere valori "puliti" che l'host confronterà) ----
+    const float dist = sqrtf(v2);
+    distances[idx]              = dist;
+    planesAngles[idx]           = acosf(fabsf(cos_nn)) * 180.0f / (float)M_PI; // [0,90]
+    normalCentroidAnglesA[idx]  = acosf(fabsf(cos_a))  * 180.0f / (float)M_PI; // [0,90]
+    normalCentroidAnglesB[idx]  = acosf(fabsf(cos_b))  * 180.0f / (float)M_PI; // [0,90]
 }
+
 
 __global__ void calculateMetalBondKernel(float* posA_x, float* posA_y, float* posA_z,
                                          float* posB_x, float* posB_y, float* posB_z,
@@ -254,7 +302,7 @@ extern "C" void launchHydrophobicBondKernel(float* d_posA_x, float* d_posA_y, fl
 extern "C" void launchHydrogenBondKernel(float* d_donor_x, float* d_donor_y, float* d_donor_z,
                                          float* d_hydrogen_x, float* d_hydrogen_y, float* d_hydrogen_z,
                                          float* d_acceptor_x, float* d_acceptor_y, float* d_acceptor_z,
-                                         float* d_distances, float* d_angles,
+                                         float* d_distances,
                                          int numDonors, int numAcceptors,
                                          int blockSizeX, int blockSizeY)
 {
@@ -267,7 +315,7 @@ extern "C" void launchHydrogenBondKernel(float* d_donor_x, float* d_donor_y, flo
         d_donor_x, d_donor_y, d_donor_z,
         d_hydrogen_x, d_hydrogen_y, d_hydrogen_z,
         d_acceptor_x, d_acceptor_y, d_acceptor_z,
-        d_distances, d_angles,
+        d_distances,
         numDonors, numAcceptors);
 }
 
@@ -275,8 +323,7 @@ extern "C" void launchHalogenBondKernel(float* d_donor_x, float* d_donor_y, floa
                                         float* d_halogen_x, float* d_halogen_y, float* d_halogen_z,
                                         float* d_acceptor_x, float* d_acceptor_y, float* d_acceptor_z,
                                         float* d_any_x, float* d_any_y, float* d_any_z,
-                                        float* d_distances, float* d_firstAngles, float* d_secondAngles,
-                                        int numDonors, int numAcceptors,
+                                        float* d_distances, int numDonors, int numAcceptors,
                                         int blockSizeX, int blockSizeY, cudaStream_t stream)
 {
     dim3 threadsPerBlock(blockSizeX, blockSizeY);
@@ -289,8 +336,7 @@ extern "C" void launchHalogenBondKernel(float* d_donor_x, float* d_donor_y, floa
         d_halogen_x, d_halogen_y, d_halogen_z,
         d_acceptor_x, d_acceptor_y, d_acceptor_z,
         d_any_x, d_any_y, d_any_z,
-        d_distances, d_firstAngles, d_secondAngles,
-        numDonors, numAcceptors);
+        d_distances, numDonors, numAcceptors);
 }
 
 extern "C" void launchIonicInteractionsKernel_CationAnion(float* d_cation_x, float* d_cation_y, float* d_cation_z,

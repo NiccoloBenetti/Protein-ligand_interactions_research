@@ -56,7 +56,7 @@ extern void launchHydrophobicBondKernel(float* d_posA_x, float* d_posA_y, float*
 extern void launchHydrogenBondKernel(float* d_donor_x, float* d_donor_y, float* d_donor_z,
                                      float* d_hydrogen_x, float* d_hydrogen_y, float* d_hydrogen_z,
                                      float* d_acceptor_x, float* d_acceptor_y, float* d_acceptor_z,
-                                     float* d_distances, float* d_angles,
+                                     float* d_distances,
                                      int numDonors, int numAcceptors,
                                      int blockSizeX, int blockSizeY);
 
@@ -64,7 +64,7 @@ extern void launchHalogenBondKernel(float* d_donor_x, float* d_donor_y, float* d
                                     float* d_halogen_x, float* d_halogen_y, float* d_halogen_z,
                                     float* d_acceptor_x, float* d_acceptor_y, float* d_acceptor_z,
                                     float* d_any_x, float* d_any_y, float* d_any_z,
-                                    float* d_distances, float* d_firstAngles, float* d_secondAngles,
+                                    float* d_distances,
                                     int numDonors, int numAcceptors,
                                     int blockSizeX, int blockSizeY, cudaStream_t stream);
 
