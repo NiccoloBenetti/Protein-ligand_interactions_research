@@ -410,39 +410,53 @@
 
     // Dichiarazione della funzione wrapper definita in kernel.cu
 
-    extern void launchHydrophobicBondKernel(float* d_posA_x, float* d_posA_y, float* d_posA_z,
-                                float* d_posB_x, float* d_posB_y, float* d_posB_z,
-                                float* d_distances, int numA, int numB, int blockSizeX, int blockSizeY);
+    // --- Wrappers CUDA: assumono mappatura coalescente B->X, A->Y ---
+extern void launchHydrophobicBondKernel(float* d_posA_x, float* d_posA_y, float* d_posA_z,
+                                        float* d_posB_x, float* d_posB_y, float* d_posB_z,
+                                        float* d_distances, int numA, int numB,
+                                        int blockSizeX, int blockSizeY, cudaStream_t stream);
 
-    extern void launchHydrogenBondKernel(float* d_donor_x, float* d_donor_y, float* d_donor_z,
-                                         float* d_hydrogen_x, float* d_hydrogen_y, float* d_hydrogen_z,
-                                         float* d_acceptor_x, float* d_acceptor_y, float* d_acceptor_z,
-                                         float* d_distances, float* d_angles,
-                                         int numDonors, int numAcceptors, int blockSizeX, int blockSizeY);
+extern void launchHydrogenBondKernel(float* d_donor_x, float* d_donor_y, float* d_donor_z,
+                                     float* d_hydrogen_x, float* d_hydrogen_y, float* d_hydrogen_z,
+                                     float* d_acceptor_x, float* d_acceptor_y, float* d_acceptor_z,
+                                     float* d_distances, float* d_angles,
+                                     int numDonors, int numAcceptors,
+                                     int blockSizeX, int blockSizeY);
 
-    // Dichiarazione extern di launchHalogenBondKernel con il parametro stream
-    extern void launchHalogenBondKernel(float* d_donor_x, float* d_donor_y, float* d_donor_z,
-                        float* d_halogen_x, float* d_halogen_y, float* d_halogen_z,
-                        float* d_acceptor_x, float* d_acceptor_y, float* d_acceptor_z,
-                        float* d_any_x, float* d_any_y, float* d_any_z,
-                        float* d_distances, float* d_firstAngles, float* d_secondAngles,
-                        int numDonors, int numAcceptors, int blockSizeX, int blockSizeY, cudaStream_t stream);
+extern void launchHalogenBondKernel(float* d_donor_x, float* d_donor_y, float* d_donor_z,
+                                    float* d_halogen_x, float* d_halogen_y, float* d_halogen_z,
+                                    float* d_acceptor_x, float* d_acceptor_y, float* d_acceptor_z,
+                                    float* d_any_x, float* d_any_y, float* d_any_z,
+                                    float* d_distances, float* d_firstAngles, float* d_secondAngles,
+                                    int numDonors, int numAcceptors,
+                                    int blockSizeX, int blockSizeY, cudaStream_t stream);
 
+extern void launchIonicInteractionsKernel_CationAnion(float* d_cation_x, float* d_cation_y, float* d_cation_z,
+                                                      float* d_anion_x, float* d_anion_y, float* d_anion_z,
+                                                      float* d_distances, int numCations, int numAnions,
+                                                      int blockSizeX, int blockSizeY);
 
-    extern void launchIonicInteractionsKernel_CationAnion(float* d_cation_x, float* d_cation_y, float* d_cation_z,
-                                                          float* d_anion_x, float* d_anion_y, float* d_anion_z,
-                                                          float* d_distances, int numCations, int numAnions, 
-                                                          int blockSizeX, int blockSizeY);
+extern void launchIonicInteractionsKernel_CationRing(float* d_cation_x, float* d_cation_y, float* d_cation_z,
+                                                     float* d_ring_centroid_x, float* d_ring_centroid_y, float* d_ring_centroid_z,
+                                                     float* d_ring_normal_x, float* d_ring_normal_y, float* d_ring_normal_z,
+                                                     float* d_distances, float* d_angles,
+                                                     int numCations, int numRings,
+                                                     int blockSizeX, int blockSizeY);
 
-    extern void launchIonicInteractionsKernel_CationRing(float* d_cation_x, float* d_cation_y, float* d_cation_z,
-                                                         float* d_ring_centroid_x, float* d_ring_centroid_y, float* d_ring_centroid_z,
-                                                         float* d_ring_normal_x, float* d_ring_normal_y, float* d_ring_normal_z,
-                                                         float* d_distances, float* d_angles, int numCations, int numRings, 
-                                                         int blockSizeX, int blockSizeY);
+extern void launchPiStackingKernel(float* d_centroidA_x, float* d_centroidA_y, float* d_centroidA_z,
+                                   float* d_normalA_x,   float* d_normalA_y,   float* d_normalA_z,
+                                   float* d_centroidB_x, float* d_centroidB_y, float* d_centroidB_z,
+                                   float* d_normalB_x,   float* d_normalB_y,   float* d_normalB_z,
+                                   float* d_distances, float* d_planesAngles,
+                                   float* d_normalCentroidAnglesA, float* d_normalCentroidAnglesB,
+                                   int numRingsA, int numRingsB,
+                                   int blockSizeX, int blockSizeY);
 
-    extern void launchMetalBondKernel(float* d_posA_x, float* d_posA_y, float* d_posA_z,
-                                            float* d_posB_x, float* d_posB_y, float* d_posB_z,
-                                            float* d_distances, int numA, int numB, int blockSizeX, int blockSizeY);
+extern void launchMetalBondKernel(float* d_posA_x, float* d_posA_y, float* d_posA_z,
+                                  float* d_posB_x, float* d_posB_y, float* d_posB_z,
+                                  float* d_distances, int numA, int numB,
+                                  int blockSizeX, int blockSizeY, cudaStream_t stream);
+
    
 
 
@@ -538,14 +552,16 @@ void findHydrophobicInteraction(const Molecule& molA, const Molecule& molB, cons
             // Dimensioni dei blocchi e griglie
             int blockSizeX = BLOCKSIZEX;
             int blockSizeY = BLOCKSIZEY;
-            dim3 threadsPerBlock(blockSizeX, blockSizeY);
-            dim3 blocksPerGrid((widthA + blockSizeX - 1) / blockSizeX, 
-                               (tmpB->second.size() + blockSizeY - 1) / blockSizeY);
 
-            // Lancia il kernel per ogni chunk di A contro l'intero set di B
-            launchHydrophobicBondKernel(d_posA_x + lowerA, d_posA_y + lowerA, d_posA_z + lowerA,
-                                   d_posB_x, d_posB_y, d_posB_z,
-                                   d_distances + lowerA * tmpB->second.size(), widthA, tmpB->second.size(), blockSizeX, blockSizeY, streams[stream]);
+            // LANCIO (coalescente: numA = widthA (asse Y), numB = tmpB->second.size() (asse X))
+launchHydrophobicBondKernel(
+    d_posA_x + lowerA, d_posA_y + lowerA, d_posA_z + lowerA,
+    d_posB_x,           d_posB_y,           d_posB_z,
+    d_distances + static_cast<size_t>(lowerA) * tmpB->second.size(),
+    static_cast<int>(widthA),                // numA (Y)
+    static_cast<int>(tmpB->second.size()),   // numB (X)
+    blockSizeX, blockSizeY, streams[stream]
+);
 
             // Copia i risultati parziali dalla GPU alla CPU per il chunk di A
             cudaMemcpyAsync(distances_host + lowerA * tmpB->second.size(), d_distances + lowerA * tmpB->second.size(),
@@ -667,17 +683,18 @@ void findHydrophobicInteraction(const Molecule& molA, const Molecule& molB, cons
 
         // Definizione delle dimensioni di blocchi e griglie per il kernel CUDA
         int blockSizeX = BLOCKSIZEX;
-        int blockSizeY = BLOCKSIZEY;
-        dim3 threadsPerBlock(blockSizeX, blockSizeY);
-        dim3 blocksPerGrid((donor_x.size() + blockSizeX - 1) / blockSizeX,
-                           (acceptor_x.size() + blockSizeY - 1) / blockSizeY);
+int blockSizeY = BLOCKSIZEY;
 
-        // Lancia il kernel CUDA per calcolare distanze e angoli
-        launchHydrogenBondKernel(d_donor_x, d_donor_y, d_donor_z,
-                         d_hydrogen_x, d_hydrogen_y, d_hydrogen_z,
-                         d_acceptor_x, d_acceptor_y, d_acceptor_z,
-                         d_distances, d_angles,
-                         donor_x.size(), acceptor_x.size(), blockSizeX, blockSizeY);
+launchHydrogenBondKernel(
+    d_donor_x, d_donor_y, d_donor_z,
+    d_hydrogen_x, d_hydrogen_y, d_hydrogen_z,
+    d_acceptor_x, d_acceptor_y, d_acceptor_z,
+    d_distances, d_angles,
+    static_cast<int>(donor_x.size()),     // numA (Y)
+    static_cast<int>(acceptor_x.size()),  // numB (X)
+    blockSizeX, blockSizeY
+);
+
 
 
         // Copia dei risultati dalla GPU alla CPU
@@ -848,19 +865,21 @@ void findHydrophobicInteraction(const Molecule& molA, const Molecule& molB, cons
 
             // Dimensioni dei blocchi e griglie
             int blockSizeX = BLOCKSIZEX;
-            int blockSizeY = BLOCKSIZEY;
-            dim3 threadsPerBlock(blockSizeX, blockSizeY);
-            dim3 blocksPerGrid((width + blockSizeX - 1) / blockSizeX, 
-                               (numAcceptors + blockSizeY - 1) / blockSizeY);
+int blockSizeY = BLOCKSIZEY;
 
-            // Lancia il kernel per ogni chunk di donatori contro l'intero set di accettori
-            launchHalogenBondKernel(d_donor_x + lower, d_donor_y + lower, d_donor_z + lower,
-                                    d_halogen_x + lower, d_halogen_y + lower, d_halogen_z + lower,
-                                    d_acceptor_x, d_acceptor_y, d_acceptor_z,
-                                    d_any_x, d_any_y, d_any_z,
-                                    d_distances + lower * numAcceptors, d_firstAngles + lower * numAcceptors,
-                                    d_secondAngles + lower * numAcceptors, width, numAcceptors,
-                                    blockSizeX, blockSizeY, streams[stream]);
+launchHalogenBondKernel(
+    d_donor_x + lower,  d_donor_y + lower,  d_donor_z + lower,
+    d_halogen_x + lower,d_halogen_y + lower,d_halogen_z + lower,
+    d_acceptor_x, d_acceptor_y, d_acceptor_z,
+    d_any_x,      d_any_y,      d_any_z,
+    d_distances + static_cast<size_t>(lower) * numAcceptors,
+    d_firstAngles + static_cast<size_t>(lower) * numAcceptors,
+    d_secondAngles + static_cast<size_t>(lower) * numAcceptors,
+    static_cast<int>(width),   // numA = donors (Y)
+    numAcceptors,              // numB = acceptors (X)
+    blockSizeX, blockSizeY, streams[stream]
+);
+
 
             // Copia i risultati parziali dalla GPU alla CPU per ogni chunk
             cudaMemcpyAsync(distances_host + lower * numAcceptors, d_distances + lower * numAcceptors, width * numAcceptors * sizeof(float), cudaMemcpyDeviceToHost, streams[stream]);
