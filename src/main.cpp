@@ -1339,6 +1339,11 @@ void identifySubstructs(Molecule& molecule, FoundPatterns &foundPatterns){
 
 // ------------------------------------------------------- MAIN and INPUT ----------------------------------------------------------------------------------------
 
+/**
+ * @brief Performs a lightweight in-place sanitization using a subset of RDKit operations (FINDRADICALS, KEKULIZE, SETAROMATICITY, SETCONJUGATION, SETHYBRIDIZATION, SYMMRINGS).
+ * @param rw Mutable molecule (`RWMol`) to sanitize in place.
+ */
+
 static inline void sanitize_light_inplace(RDKit::RWMol &rw) {
     unsigned int failedOp = RDKit::MolOps::SANITIZE_NONE;
     const unsigned int ops =
