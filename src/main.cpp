@@ -1379,17 +1379,32 @@ void input(char **argv, int argc, std::vector<Molecule> &molVector) {
         }
 
         fseek(file, 0, SEEK_END);
-        long fileSize = ftell(file);
+        long fileSizeLong = ftell(file);
+        if (fileSizeLong < 0) {
+            fclose(file);
+            std::cerr << "ftell() failed on " << argv[i] << "\n";
+            continue;
+        }
         fseek(file, 0, SEEK_SET);
 
-        fileContent = (char*)malloc(fileSize + 1);
+        // usa size_t per confrontarsi con fread() che ritorna size_t
+        size_t fileSize = static_cast<size_t>(fileSizeLong);
+
+        fileContent = static_cast<char*>(malloc(fileSize + 1));
         if (!fileContent) {
             std::cerr << "Malloc error\n";
             fclose(file);
             return;
         }
 
-        fread(fileContent, 1, fileSize, file);
+        size_t nread = fread(fileContent, 1, fileSize, file);
+        if (nread != fileSize) {
+            fclose(file);
+            free(fileContent);
+            throw std::runtime_error("Short read: expected " + std::to_string(fileSize) +
+                                    " bytes, got " + std::to_string(nread));
+        }
+
         fileContent[fileSize] = '\0';
         fclose(file);
 
