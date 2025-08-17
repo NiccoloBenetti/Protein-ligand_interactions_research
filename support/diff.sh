@@ -1,16 +1,5 @@
 #!/usr/bin/env bash
 # diff.sh
-#
-# Naviga l'albero dei test come testing.sh,
-# copia ogni interactions.csv rinominandolo con il nome della directory che lo contiene
-# in diff/CPU o diff/GPU dentro la cartella support (dove è questo script),
-# poi confronta i file .csv omonimi e salva il report in diff/diff.txt,
-# indicando anche i file identici con una linea dedicata.
-#
-# USO:
-#   ./diff.sh --mode cpu   # default
-#   ./diff.sh --mode gpu
-#   ./diff.sh --mode cpu --root /path/to/project
 
 set -euo pipefail
 
@@ -61,6 +50,11 @@ echo ">>> Modalità: $MODE"
 DEST_DIR="$DIFF_DIR/$( tr '[:lower:]' '[:upper:]' <<< "$MODE" )"
 echo ">>> Raccolgo i risultati in: $DEST_DIR"
 
+# === PULIZIA SOLO DELLA MODALITÀ CORRENTE ===
+if [[ -d "$DEST_DIR" ]]; then
+  find "$DEST_DIR" -type f -name '*.csv' -delete || true
+fi
+
 #########################################
 # 1. COPIA interactions.csv RINOMINATO  #
 #########################################
@@ -76,34 +70,32 @@ echo ">>> Copia completata."
 ###################################################
 : > "$DIFF_FILE"
 
-echo ">>> Confronto CSV tra CPU e GPU..."
-# Controlla file identici, differenti o mancanti
-for CPU_CSV in "$CPU_DIR"/*.csv; do
-  FILE="$( basename "$CPU_CSV" )"
-  GPU_CSV="$GPU_DIR/$FILE"
-  if [[ -f "$GPU_CSV" ]]; then
-    # usa diff per verificare identità
-    if diff -q "$CPU_CSV" "$GPU_CSV" > /dev/null; then
-      echo "[SAME] $FILE sono identici" >> "$DIFF_FILE"
+# Procedi solo se ci sono CSV in entrambe le cartelle
+if compgen -G "$CPU_DIR/*.csv" > /dev/null && compgen -G "$GPU_DIR/*.csv" > /dev/null; then
+  echo ">>> Confronto CSV tra CPU e GPU..."
+  for CPU_CSV in "$CPU_DIR"/*.csv; do
+    FILE="$( basename "$CPU_CSV" )"
+    GPU_CSV="$GPU_DIR/$FILE"
+    if [[ -f "$GPU_CSV" ]]; then
+      if ! DIFF_OUTPUT=$( diff -u "$CPU_CSV" "$GPU_CSV" ); then
+        {
+          echo "=============================================="
+          echo "Differenze in: $FILE"
+          echo "----------------------------------------------"
+          echo "$DIFF_OUTPUT"
+          echo
+        } >> "$DIFF_FILE"
+      fi
     else
-      # differenze dettagliate
-      DIFF_OUTPUT=$( diff -u "$CPU_CSV" "$GPU_CSV" )
-      {
-        echo "=============================================="
-        echo "Differenze in: $FILE"
-        echo "----------------------------------------------"
-        echo "$DIFF_OUTPUT"
-        echo
-      } >> "$DIFF_FILE"
+      echo "[MISSING] $FILE presente in CPU ma non in GPU" >> "$DIFF_FILE"
     fi
-  else
-    echo "[MISSING] $FILE presente in CPU ma non in GPU" >> "$DIFF_FILE"
-  fi
-done
-# File presenti solo in GPU
-for GPU_CSV in "$GPU_DIR"/*.csv; do
-  FILE="$( basename "$GPU_CSV" )"
-  [[ -f "$CPU_DIR/$FILE" ]] || echo "[MISSING] $FILE presente in GPU ma non in CPU" >> "$DIFF_FILE"
-done
-
-echo ">>> Report diff salvato in: $DIFF_FILE"
+  done
+  # File presenti solo in GPU
+  for GPU_CSV in "$GPU_DIR"/*.csv; do
+    FILE="$( basename "$GPU_CSV" )"
+    [[ -f "$CPU_DIR/$FILE" ]] || echo "[MISSING] $FILE presente in GPU ma non in CPU" >> "$DIFF_FILE"
+  done
+  echo ">>> Report diff salvato in: $DIFF_FILE"
+else
+  echo ">>> Nessun confronto: assicurati di avere CSV in entrambe $CPU_DIR e $GPU_DIR" >&2
+fi

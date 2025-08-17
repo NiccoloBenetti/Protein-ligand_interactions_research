@@ -1,51 +1,47 @@
 #!/bin/bash
 
-# Controlla se è stato fornito un numero massimo di directory da processare
+# --- 1) Calcola la directory in cui risiede questo script (support/) ---
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# --- 2) Imposta root_dir a una cartella sopra script_dir (HPC-drugDiscovery) ---
+root_dir="$(dirname "$script_dir")"
+
+# --- 2bis) Rigenera l'eseguibile per essere sicuro di testare la versione aggiornata ---
+"$script_dir/deleteCSV.sh"
+rm -rf "$root_dir/build"
+cmake -S "$root_dir" -B "$root_dir/build"
+cmake --build "$root_dir/build"
+
+# --- 3) Numero massimo di cartelle da processare (opzionale) ---
 if [ -z "$1" ]; then
-    max_dirs=-1  # Se non è fornito un numero, setta max_dirs a -1 per indicare nessun limite
+    max_dirs=-1
 else
     max_dirs=$1
 fi
 
 count=0
 
-# Salva la posizione base da cui parte lo script
-BASE_DIR=$(pwd)
-INTERACTION_EXECUTABLE="$BASE_DIR/build/interaction"
+# --- 4) Entra in testing_samples dentro support/ ---
+cd "$script_dir/testing_samples" || { echo "Cannot cd into testing_samples"; exit 1; }
 
-if [ ! -x "$INTERACTION_EXECUTABLE" ]; then
-    echo "Errore: eseguibile $INTERACTION_EXECUTABLE non trovato o non eseguibile."
-    exit 1
-fi
-
-
-# Loop attraverso tutte le sottodirectory
-for dir in support/testing_samples/*/; do
-    # Incrementa il contatore
+# --- 5) Loop su ogni sottocartella ---
+for dir in */; do
     count=$((count + 1))
-    
-    # Controlla se il contatore ha raggiunto il massimo, solo se max_dirs è maggiore di 0
     if [ "$max_dirs" -gt 0 ] && [ "$count" -gt "$max_dirs" ]; then
         break
     fi
-    
-    # Entra nella directory
-    pushd "$dir" > /dev/null || { echo "Impossibile entrare nella directory $dir"; exit 1; }
 
-    # Trova il file della proteina e del ligando
+    cd "$dir" || { echo "Cannot cd into $dir"; cd ..; continue; }
+
     protein_file=$(find . -name '*_pocket.pdb' -print -quit)
     ligand_file=$(find . -name '*_ligand.mol2' -print -quit)
-    
-    # Controlla se entrambi i file esistono
+
     if [[ -n "$protein_file" && -n "$ligand_file" ]]; then
-        # Esegui il tuo programma passando i due file come argomenti
-        "$INTERACTION_EXECUTABLE" "$protein_file" "$ligand_file"
+        # Esegui interaction dal folder build in HPC-drugDiscovery
+        "$root_dir/build/interaction" "$protein_file" "$ligand_file"
     else
         echo "Files missing in directory $dir"
     fi
 
-    # Torna indietro
-    popd > /dev/null
-
+    cd ..
 done
-
