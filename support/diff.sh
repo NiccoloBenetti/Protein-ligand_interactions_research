@@ -1,15 +1,5 @@
 #!/usr/bin/env bash
 # diff.sh
-#
-# Naviga l'albero dei test come testing.sh,
-# copia ogni interactions.csv rinominandolo con il nome della directory che lo contiene
-# in diff/CPU o diff/GPU dentro la cartella support (dove è questo script),
-# poi confronta i file .csv omonimi e salva il report in diff/diff.txt.
-#
-# USO:
-#   ./diff.sh --mode cpu   # default
-#   ./diff.sh --mode gpu
-#   ./diff.sh --mode cpu --root /path/to/project
 
 set -euo pipefail
 
@@ -60,6 +50,11 @@ echo ">>> Modalità: $MODE"
 DEST_DIR="$DIFF_DIR/$( tr '[:lower:]' '[:upper:]' <<< "$MODE" )"
 echo ">>> Raccolgo i risultati in: $DEST_DIR"
 
+# === PULIZIA SOLO DELLA MODALITÀ CORRENTE ===
+if [[ -d "$DEST_DIR" ]]; then
+  find "$DEST_DIR" -type f -name '*.csv' -delete || true
+fi
+
 #########################################
 # 1. COPIA interactions.csv RINOMINATO  #
 #########################################
@@ -104,4 +99,3 @@ if compgen -G "$CPU_DIR/*.csv" > /dev/null && compgen -G "$GPU_DIR/*.csv" > /dev
 else
   echo ">>> Nessun confronto: assicurati di avere CSV in entrambe $CPU_DIR e $GPU_DIR" >&2
 fi
-

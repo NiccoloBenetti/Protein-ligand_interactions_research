@@ -171,6 +171,65 @@ __global__ void calculateCationRingKernel(float* cation_x, float* cation_y, floa
     }
 }
 
+__global__ void calculatePiStackingKernel(
+    const float* __restrict__ centroidA_x, const float* __restrict__ centroidA_y, const float* __restrict__ centroidA_z,
+    const float* __restrict__ normalA_x,   const float* __restrict__ normalA_y,   const float* __restrict__ normalA_z,
+    const float* __restrict__ centroidB_x, const float* __restrict__ centroidB_y, const float* __restrict__ centroidB_z,
+    const float* __restrict__ normalB_x,   const float* __restrict__ normalB_y,   const float* __restrict__ normalB_z,
+    float* __restrict__ distances,
+    float* __restrict__ planesAngles,
+    float* __restrict__ normalCentroidAnglesA,
+    float* __restrict__ normalCentroidAnglesB,
+    int numA, int numB)
+{
+    const int i = blockIdx.x * blockDim.x + threadIdx.x; // ring A
+    const int j = blockIdx.y * blockDim.y + threadIdx.y; // ring B
+    if (i >= numA || j >= numB) return;
+
+    // Centroidi A,B
+    const float cax = centroidA_x[i], cay = centroidA_y[i], caz = centroidA_z[i];
+    const float cbx = centroidB_x[j], cby = centroidB_y[j], cbz = centroidB_z[j];
+
+    // Vettore A→B
+    const float vx = cbx - cax;
+    const float vy = cby - cay;
+    const float vz = cbz - caz;
+    const float vmag = sqrtf(vx*vx + vy*vy + vz*vz) + 1e-20f;   // evita div/0
+
+    // Normali normalizzate (se già normalizzate lato host, è ok comunque)
+    float nax = normalA_x[i], nay = normalA_y[i], naz = normalA_z[i];
+    float nbx = normalB_x[j], nby = normalB_y[j], nbz = normalB_z[j];
+
+    const float nAmag = sqrtf(nax*nax + nay*nay + naz*naz) + 1e-20f;
+    const float nBmag = sqrtf(nbx*nbx + nby*nby + nbz*nbz) + 1e-20f;
+    nax /= nAmag; nay /= nAmag; naz /= nAmag;
+    nbx /= nBmag; nby /= nBmag; nbz /= nBmag;
+
+    // Distanza centroidi
+    const float dist = vmag;
+
+    // Angolo tra le normali ai piani (usa |cos| → [0,90]°, come CPU con abs)
+    float cos_nn = nax*nbx + nay*nby + naz*nbz;
+    cos_nn = fminf(1.f, fmaxf(-1.f, cos_nn));
+    const float anglePlanes = acosf(fabsf(cos_nn)) * 180.0f / M_PI;
+
+    // Angoli normale↔vettore tra centroidi (usa |cos| per simmetria con CPU)
+    const float inv_vmag = 1.0f / vmag;
+    float cos_a = (nax*vx + nay*vy + naz*vz) * inv_vmag;              // normale A ↔ (A→B)
+    float cos_b = (nbx*(-vx) + nby*(-vy) + nbz*(-vz)) * inv_vmag;     // normale B ↔ (B→A)
+    cos_a = fminf(1.f, fmaxf(-1.f, cos_a));
+    cos_b = fminf(1.f, fmaxf(-1.f, cos_b));
+    const float angleA = acosf(fabsf(cos_a)) * 180.0f / M_PI;
+    const float angleB = acosf(fabsf(cos_b)) * 180.0f / M_PI;
+
+    const int idx = i * numB + j;
+    distances[idx]              = dist;
+    planesAngles[idx]           = anglePlanes;
+    normalCentroidAnglesA[idx]  = angleA;
+    normalCentroidAnglesB[idx]  = angleB;
+}
+
+
 __global__ void calculateMetalBondKernel(float* posA_x, float* posA_y, float* posA_z,
                                            float* posB_x, float* posB_y, float* posB_z,
                                            float* distances, int numA, int numB) {
@@ -286,6 +345,28 @@ extern "C" void launchIonicInteractionsKernel_CationRing(float* d_cation_x, floa
         d_ring_centroid_x, d_ring_centroid_y, d_ring_centroid_z,
         d_ring_normal_x, d_ring_normal_y, d_ring_normal_z,
         d_distances, d_angles, numCations, numRings);
+}
+
+extern "C" void launchPiStackingKernel(float* d_centroidA_x, float* d_centroidA_y, float* d_centroidA_z,
+                            float* d_normalA_x,   float* d_normalA_y,   float* d_normalA_z,
+                            float* d_centroidB_x, float* d_centroidB_y, float* d_centroidB_z,
+                            float* d_normalB_x,   float* d_normalB_y,   float* d_normalB_z,
+                            float* d_distances, float* d_planesAngles,
+                            float* d_normalCentroidAnglesA, float* d_normalCentroidAnglesB,
+                            int numRingsA, int numRingsB, int blockSizeX, int blockSizeY)
+{
+    dim3 threadsPerBlock(blockSizeX, blockSizeY);
+    dim3 blocksPerGrid((numRingsA + blockSizeX - 1) / blockSizeX,
+                       (numRingsB + blockSizeY - 1) / blockSizeY);
+
+    calculatePiStackingKernel<<<blocksPerGrid, threadsPerBlock>>>(
+        d_centroidA_x, d_centroidA_y, d_centroidA_z,
+        d_normalA_x,   d_normalA_y,   d_normalA_z,
+        d_centroidB_x, d_centroidB_y, d_centroidB_z,
+        d_normalB_x,   d_normalB_y,   d_normalB_z,
+        d_distances, d_planesAngles, d_normalCentroidAnglesA, d_normalCentroidAnglesB,
+        numRingsA, numRingsB
+    );
 }
 
 extern "C" void launchMetalBondKernel(float* d_posA_x, float* d_posA_y, float* d_posA_z,

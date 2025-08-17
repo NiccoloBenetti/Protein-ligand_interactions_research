@@ -80,6 +80,17 @@ void launchIonicInteractionsKernel_CationRing(float* d_cation_x, float* d_cation
                                               float* d_distances, float* d_angles, int numCations, int numRings, 
                                               int blockSizeX, int blockSizeY);
 
+// Dichiarazione del wrapper per il kernel PiStacking
+void launchPiStackingKernel(float* d_centroidA_x, float* d_centroidA_y, float* d_centroidA_z,
+                            float* d_normalA_x,   float* d_normalA_y,   float* d_normalA_z,
+                            float* d_centroidB_x, float* d_centroidB_y, float* d_centroidB_z,
+                            float* d_normalB_x,   float* d_normalB_y,   float* d_normalB_z,
+                            float* d_distances, float* d_planesAngles,
+                            float* d_normalCentroidAnglesA, float* d_normalCentroidAnglesB,
+                            int numRingsA, int numRingsB, int blockSizeX, int blockSizeY);
+
+
+// Dichiarazione del wrapper per il kernel Metal Coordination
 void launchMetalBondKernel(float* d_posA_x, float* d_posA_y, float* d_posA_z,
                             float* d_posB_x, float* d_posB_y, float* d_posB_z,
                             float* d_distances, int numA, int numB, int blockSizeX, int blockSizeY, cudaStream_t stream);

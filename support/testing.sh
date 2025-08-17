@@ -6,6 +6,12 @@ script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # --- 2) Imposta root_dir a una cartella sopra script_dir (HPC-drugDiscovery) ---
 root_dir="$(dirname "$script_dir")"
 
+# --- 2bis) Rigenera l'eseguibile per essere sicuro di testare la versione aggiornata ---
+"$script_dir/deleteCSV.sh"
+rm -rf "$root_dir/build"
+cmake -S "$root_dir" -B "$root_dir/build"
+cmake --build "$root_dir/build"
+
 # --- 3) Numero massimo di cartelle da processare (opzionale) ---
 if [ -z "$1" ]; then
     max_dirs=-1

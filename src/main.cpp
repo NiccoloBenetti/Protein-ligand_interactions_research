@@ -1105,92 +1105,207 @@ void findHydrophobicInteraction(const Molecule& molA, const Molecule& molB, cons
 
 
     //two planes facing each other: SANDWICH | two planes perpendicular: T-SHAPE
-    void findPiStacking(const Molecule& molA, const Molecule& molB, const FoundPatterns& molA_patterns, const FoundPatterns& molB_patterns, const RDKit::Conformer& conformer_molA, const RDKit::Conformer& conformer_molB, const bool protA_ligB, const bool printInteractions){
-        auto molA_pattern = molA_patterns.patternMatches.find(Pattern::Aromatic_ring);
-        auto molB_pattern = molB_patterns.patternMatches.find(Pattern::Aromatic_ring);
-        unsigned int id_pointA, id_pointB;
-        RDGeom::Point3D pos_pointA, pos_pointB;
-        float distance;
+    void findPiStacking(const Molecule& molA, const Molecule& molB,
+                    const FoundPatterns& molA_patterns, const FoundPatterns& molB_patterns,
+                    const RDKit::Conformer& conformer_molA, const RDKit::Conformer& conformer_molB,
+                    const bool protA_ligB, const bool printInteractions)
+{
+    auto molA_pattern = molA_patterns.patternMatches.find(Pattern::Aromatic_ring);
+    auto molB_pattern = molB_patterns.patternMatches.find(Pattern::Aromatic_ring);
+    if ((molA_pattern == molA_patterns.patternMatches.end()) ||
+        (molB_pattern == molB_patterns.patternMatches.end())) {
+        return;
+    }
 
-        if ((molA_pattern != molA_patterns.patternMatches.end()) && (molB_pattern != molB_patterns.patternMatches.end())){
-            float planesAngle;
+    // ---- Prepara anelli: centroidi e normali (CPU) ----
+    std::vector<float> cA_x, cA_y, cA_z, nA_x, nA_y, nA_z;
+    std::vector<float> cB_x, cB_y, cB_z, nB_x, nB_y, nB_z;
+    std::vector<unsigned int> ringA_id, ringB_id; // per output
+    std::vector<std::vector<RDGeom::Point3D>> ringsA_points, ringsB_points; // per check T-shape (inside-polygon)
 
-            float normalCentroidAngle_A, normalCentroidAngle_B;
+    // A
+    for (const auto& matchVectA : molA_pattern->second) {
+        std::vector<RDGeom::Point3D> pos_ringA;
+        pos_ringA.reserve(matchVectA.size());
+        for (const auto& pairs_molA : matchVectA) {
+            unsigned int idx = pairs_molA.second;
+            pos_ringA.push_back(conformer_molA.getAtomPos(idx));
+        }
+        ringsA_points.push_back(pos_ringA);
+        ringA_id.push_back(matchVectA.back().second);
 
-            std::string atom_id_molA, atom_id_molB;
+        RDGeom::Point3D centroidA = calculateCentroid(pos_ringA);
+        // usa 3 punti adiacenti per la normale (già presente in main.cpp)
+        RDGeom::Point3D normalA = calculateNormalVector(pos_ringA.at(0), pos_ringA.at(1), pos_ringA.at(2));
 
-            RDGeom::Point3D centroidA, centroidB, normalA, normalB, centroidsVector;
-            
-            std::vector<RDGeom::Point3D> pos_ringA, pos_ringB;
+        cA_x.push_back(centroidA.x); cA_y.push_back(centroidA.y); cA_z.push_back(centroidA.z);
+        nA_x.push_back(normalA.x);   nA_y.push_back(normalA.y);   nA_z.push_back(normalA.z);
+    }
 
-            for (const auto& matchVect_molA : molA_pattern->second){ // for each aromatic ring found in molA
-                pos_ringA.clear();
-                for(const auto& pair_molA : matchVect_molA){ // creates the aromatic ring A as a vector of points
-                    id_pointA = pair_molA.second; 
-                    pos_pointA = conformer_molA.getAtomPos(id_pointA);
-                    pos_ringA.push_back(pos_pointA);  
-                }
-                centroidA = calculateCentroid(pos_ringA);
+    // B
+    for (const auto& matchVectB : molB_pattern->second) {
+        std::vector<RDGeom::Point3D> pos_ringB;
+        pos_ringB.reserve(matchVectB.size());
+        for (const auto& pairs_molB : matchVectB) {
+            unsigned int idx = pairs_molB.second;
+            pos_ringB.push_back(conformer_molB.getAtomPos(idx));
+        }
+        ringsB_points.push_back(pos_ringB);
+        ringB_id.push_back(matchVectB.back().second);
 
-                for(const auto& matchVect_molB : molB_pattern->second){ // for each aromatic ring found in molB
-                    pos_ringB.clear();
-                    for(const auto& pair_molB : matchVect_molB){ // creates the aromatic ring B as a vector of points
-                        id_pointB = pair_molB.second;  
-                        pos_pointB = conformer_molB.getAtomPos(id_pointB);
-                        pos_ringB.push_back(pos_pointB);  
-                    }
-                    centroidB = calculateCentroid(pos_ringB); //TODO: controllare se conviene spostare il calcolo dei centroidi e della distanza dentro agli if
+        RDGeom::Point3D centroidB = calculateCentroid(pos_ringB);
+        RDGeom::Point3D normalB   = calculateNormalVector(pos_ringB.at(0), pos_ringB.at(1), pos_ringB.at(2));
 
-                    distance = calculateDistance(centroidA, centroidB); // gets the distance between the two centroids 
+        cB_x.push_back(centroidB.x); cB_y.push_back(centroidB.y); cB_z.push_back(centroidB.z);
+        nB_x.push_back(normalB.x);   nB_y.push_back(normalB.y);   nB_z.push_back(normalB.z);
+    }
 
-                    normalA = calculateNormalVector(pos_ringA.at(0), pos_ringA.at(2), pos_ringA.at(3)); // finds the normal vector of the plane of the aromatic ring A
-                    normalB = calculateNormalVector(pos_ringB.at(0), pos_ringB.at(2), pos_ringB.at(3)); // finds the normal vector of the plane of the aromatic ring B
+    const int numA = static_cast<int>(cA_x.size());
+    const int numB = static_cast<int>(cB_x.size());
+    if (numA == 0 || numB == 0) return;
 
-                    planesAngle = calculateVectorAngle(normalA, normalB); // finds the angle between the two aromatic rings
+    // ---- Device buffers ----
+    float *d_cA_x, *d_cA_y, *d_cA_z, *d_nA_x, *d_nA_y, *d_nA_z;
+    float *d_cB_x, *d_cB_y, *d_cB_z, *d_nB_x, *d_nB_y, *d_nB_z;
+    float *d_dist, *d_planeAng, *d_nCentA, *d_nCentB;
 
-                    if(isAngleInRange(planesAngle, MIN_PLANES_ANGLE_SANDWICH, MAX_PLANES_ANGLE_SANDWICH)){ // SANDWICH
+    cudaMalloc(&d_cA_x, numA*sizeof(float)); cudaMalloc(&d_cA_y, numA*sizeof(float)); cudaMalloc(&d_cA_z, numA*sizeof(float));
+    cudaMalloc(&d_nA_x, numA*sizeof(float)); cudaMalloc(&d_nA_y, numA*sizeof(float)); cudaMalloc(&d_nA_z, numA*sizeof(float));
+    cudaMalloc(&d_cB_x, numB*sizeof(float)); cudaMalloc(&d_cB_y, numB*sizeof(float)); cudaMalloc(&d_cB_z, numB*sizeof(float));
+    cudaMalloc(&d_nB_x, numB*sizeof(float)); cudaMalloc(&d_nB_y, numB*sizeof(float)); cudaMalloc(&d_nB_z, numB*sizeof(float));
 
-                        centroidsVector = centroidB - centroidA; // calculates the vector that links the two centroids
+    cudaMalloc(&d_dist,     numA*numB*sizeof(float));
+    cudaMalloc(&d_planeAng, numA*numB*sizeof(float));
+    cudaMalloc(&d_nCentA,   numA*numB*sizeof(float));
+    cudaMalloc(&d_nCentB,   numA*numB*sizeof(float));
 
-                        normalCentroidAngle_A = calculateVectorAngle(centroidsVector, normalA); //calculate the angle between the vector that links the two centroids and the normal of ring A
-                        normalCentroidAngle_B = calculateVectorAngle(centroidsVector, normalB); //calculate the angle between the vector that links the two centroids and the normal of ring B
+    // ---- Copy H→D ----
+    cudaMemcpy(d_cA_x, cA_x.data(), numA*sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_cA_y, cA_y.data(), numA*sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_cA_z, cA_z.data(), numA*sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_nA_x, nA_x.data(), numA*sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_nA_y, nA_y.data(), numA*sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_nA_z, nA_z.data(), numA*sizeof(float), cudaMemcpyHostToDevice);
 
-                        if(distance <= DISTANCE_SANDWICH && isAngleInRange(normalCentroidAngle_A, MIN_NORMAL_CENTROID_ANGLE_SANDWICH, MAX_NORMAL_CENTROID_ANGLE_SANDWICH) && isAngleInRange(normalCentroidAngle_B, MIN_NORMAL_CENTROID_ANGLE_SANDWICH, MAX_NORMAL_CENTROID_ANGLE_SANDWICH)){
-                            getProtLigAtomID(molA, molB, id_pointA, id_pointB, atom_id_molA, atom_id_molB, protA_ligB);
-                            if(printInteractions)
-                                std::cout << "Pi Stacking - SANDWICH \n";
-                            output(molA.name, molB.name, atom_id_molA, "Aromatic_ring", centroidA.x, centroidA.y, centroidA.z,  atom_id_molB, "Aromatic_ring", centroidB.x, centroidB.y, centroidB.z, "Pi Stacking", distance, protA_ligB);
-                        }
-                    }
-                    else if(isAngleInRange(planesAngle, MIN_PLANES_ANGLE_TSHAPE, MAX_PLANES_ANGLE_TSHAPE)){ // T SHAPE
+    cudaMemcpy(d_cB_x, cB_x.data(), numB*sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_cB_y, cB_y.data(), numB*sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_cB_z, cB_z.data(), numB*sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_nB_x, nB_x.data(), numB*sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_nB_y, nB_y.data(), numB*sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_nB_z, nB_z.data(), numB*sizeof(float), cudaMemcpyHostToDevice);
 
-                        centroidsVector = centroidB - centroidA; //calculates the vector that links the two centroids
+    // ---- Launch ----
+    const int blockSizeX = BLOCKSIZEX;
+    const int blockSizeY = BLOCKSIZEY;
 
-                        normalCentroidAngle_A = calculateVectorAngle(centroidsVector, normalA); //calculate the angle between the vector that links the two centroids and the normal of ring A
-                        normalCentroidAngle_B = calculateVectorAngle(centroidsVector, normalB); //calculate the angle between the vector that links the two centroids and the normal of ring B
+    launchPiStackingKernel(d_cA_x, d_cA_y, d_cA_z,
+                           d_nA_x, d_nA_y, d_nA_z,
+                           d_cB_x, d_cB_y, d_cB_z,
+                           d_nB_x, d_nB_y, d_nB_z,
+                           d_dist, d_planeAng, d_nCentA, d_nCentB,
+                           numA, numB, blockSizeX, blockSizeY);
 
-                        //TODO: manca il check del quarto punto della docu
+    // ---- Copy D→H ----
+    std::vector<float> h_dist(numA*numB), h_plane(numA*numB), h_ncA(numA*numB), h_ncB(numA*numB);
+    cudaMemcpy(h_dist.data(),  d_dist,     numA*numB*sizeof(float), cudaMemcpyDeviceToHost);
+    cudaMemcpy(h_plane.data(), d_planeAng, numA*numB*sizeof(float), cudaMemcpyDeviceToHost);
+    cudaMemcpy(h_ncA.data(),   d_nCentA,   numA*numB*sizeof(float), cudaMemcpyDeviceToHost);
+    cudaMemcpy(h_ncB.data(),   d_nCentB,   numA*numB*sizeof(float), cudaMemcpyDeviceToHost);
 
-                        
-                        RDGeom::Point3D P1 = centroidB + normalA * calculateDistance(pos_ringA.at(1), pos_ringA.at(2), pos_ringA.at(3), centroidB) * (isGreaterThenNinety(calculateActualVectorAngle(centroidsVector, normalA)) ? 1 : -1); //finds the point P1
+    // ---- Free D ----
+    cudaFree(d_cA_x); cudaFree(d_cA_y); cudaFree(d_cA_z);
+    cudaFree(d_nA_x); cudaFree(d_nA_y); cudaFree(d_nA_z);
+    cudaFree(d_cB_x); cudaFree(d_cB_y); cudaFree(d_cB_z);
+    cudaFree(d_nB_x); cudaFree(d_nB_y); cudaFree(d_nB_z);
+    cudaFree(d_dist); cudaFree(d_planeAng); cudaFree(d_nCentA); cudaFree(d_nCentB);
 
-                        int count = 0;
+    // ---- Post-processing su CPU: soglie + (solo per T-shape) check "inside-polygon" ----
+    auto angleIn = [](float a, float mn, float mx){ return (a >= mn && a <= mx); };
 
-                        for(size_t k = 0; k < pos_ringA.size(); k++){ //checks if the segment P1-centroidA intersects with every segment of ringA
-                            if(doSegmentsIntersect(P1, centroidA, pos_ringA.at(k), pos_ringA.at((k+1)%pos_ringA.size()))) count ++; //counts the number of intersections
-                        }
+    // Helper locale: proietta un punto P sul piano (Q, n) e fa ray-casting in quel piano per test di "inside-polygon".
+    auto centroidInsideRing = [&](const RDGeom::Point3D& centroidToTest,
+                                  const std::vector<RDGeom::Point3D>& ringPts,
+                                  const RDGeom::Point3D& ringNormal) -> bool
+    {
+        // Proiezione sul piano dell'anello: Pproj = P - n * dot(P-Q, n)
+        RDGeom::Point3D Q = ringPts.front();
+        RDGeom::Point3D n = ringNormal; n.normalize();
+        RDGeom::Point3D PQ = centroidToTest - Q;
+        RDGeom::Point3D Pproj = centroidToTest - n * dotProduct(PQ, n);
 
-                        if(distance <= DISTANCE_TSHAPE && isAngleInRange(normalCentroidAngle_A, MIN_NORMAL_CENTROID_ANGLE_TSHAPE, MAX_NORMAL_CENTROID_ANGLE_TSHAPE) && isAngleInRange(normalCentroidAngle_B, MIN_NORMAL_CENTROID_ANGLE_TSHAPE, MAX_NORMAL_CENTROID_ANGLE_TSHAPE) && count < 1){
-                            getProtLigAtomID(molA, molB, id_pointA, id_pointB, atom_id_molA, atom_id_molB, protA_ligB);
-                            if(printInteractions)
-                                std::cout << "Pi Stacking - T-SHAPE \n";
-                            output(molA.name, molB.name, atom_id_molA, "Aromatic_ring", centroidA.x, centroidA.y, centroidA.z,  atom_id_molB, "Aromatic_ring", centroidB.x, centroidB.y, centroidB.z, "Pi Stacking", distance, protA_ligB);
-                        }
-                    }
+        // Costruisci un vettore qualsiasi nel piano per il raggio
+        RDGeom::Point3D ref(1.0, 0.0, 0.0);
+        if (fabs(dotProduct(ref, n)) > 0.99) ref = RDGeom::Point3D(0.0, 1.0, 0.0);
+        RDGeom::Point3D u = n.crossProduct(ref); u.normalize();
+
+        // Punto lontano nel piano, da usare come "esterno"
+        RDGeom::Point3D Pfar = Pproj + u * 1000.0;
+
+        // Conta intersezioni del segmento (Pproj, Pfar) con i lati dell'anello (poligono chiuso)
+        int count = 0;
+        const size_t N = ringPts.size();
+        for (size_t k = 0; k < N; ++k) {
+            RDGeom::Point3D e1 = ringPts[k];
+            RDGeom::Point3D e2 = ringPts[(k+1)%N];
+            RDGeom::Point3D A = Pproj;
+            RDGeom::Point3D B = Pfar;
+            if (doSegmentsIntersect(A, B, e1, e2)) ++count;
+        }
+        return (count % 2) == 1; // dispari → inside
+    };
+
+    // Output
+    unsigned int id_pointA = 0, id_pointB = 0;
+    std::string atom_id_molA, atom_id_molB;
+
+    for (int i = 0; i < numA; ++i) {
+        for (int j = 0; j < numB; ++j) {
+            const int idx = i * numB + j;
+            const float distance     = h_dist[idx];
+            const float planesAngle  = h_plane[idx];
+            const float ncentA       = h_ncA[idx];
+            const float ncentB       = h_ncB[idx];
+
+            RDGeom::Point3D centroidA(cA_x[i], cA_y[i], cA_z[i]);
+            RDGeom::Point3D centroidB(cB_x[j], cB_y[j], cB_z[j]);
+            RDGeom::Point3D normalA  (nA_x[i], nA_y[i], nA_z[i]);
+            RDGeom::Point3D normalB  (nB_x[j], nB_y[j], nB_z[j]);
+
+            // SANDWICH
+            if (distance <= DISTANCE_SANDWICH &&
+                angleIn(planesAngle, MIN_PLANES_ANGLE_SANDWICH, MAX_PLANES_ANGLE_SANDWICH) &&
+                angleIn(ncentA, MIN_NORMAL_CENTROID_ANGLE_SANDWICH, MAX_NORMAL_CENTROID_ANGLE_SANDWICH) &&
+                angleIn(ncentB, MIN_NORMAL_CENTROID_ANGLE_SANDWICH, MAX_NORMAL_CENTROID_ANGLE_SANDWICH))
+            {
+                id_pointA = ringA_id[i];
+                id_pointB = ringB_id[j];
+                getProtLigAtomID(molA, molB, id_pointA, id_pointB, atom_id_molA, atom_id_molB, protA_ligB);
+                if (printInteractions) std::cout << "Pi Stacking - SANDWICH\n";
+                output(molA.name, molB.name, atom_id_molA, "Aromatic_ring", centroidA.x, centroidA.y, centroidA.z,
+                       atom_id_molB, "Aromatic_ring", centroidB.x, centroidB.y, centroidB.z,
+                       "Pi Stacking", distance, protA_ligB);
+            }
+            // T-SHAPE (+ check inside-polygon sul piano di A per il centroide di B)
+            else if (distance <= DISTANCE_TSHAPE &&
+                     angleIn(planesAngle, MIN_PLANES_ANGLE_TSHAPE, MAX_PLANES_ANGLE_TSHAPE) &&
+                     angleIn(ncentA, MIN_NORMAL_CENTROID_ANGLE_TSHAPE, MAX_NORMAL_CENTROID_ANGLE_TSHAPE) &&
+                     angleIn(ncentB, MIN_NORMAL_CENTROID_ANGLE_TSHAPE, MAX_NORMAL_CENTROID_ANGLE_TSHAPE))
+            {
+                bool inside = centroidInsideRing(centroidB, ringsA_points[i], normalA);
+                if (inside) {
+                    id_pointA = ringA_id[i];
+                    id_pointB = ringB_id[j];
+                    getProtLigAtomID(molA, molB, id_pointA, id_pointB, atom_id_molA, atom_id_molB, protA_ligB);
+                    if (printInteractions) std::cout << "Pi Stacking - T-SHAPE\n";
+                    output(molA.name, molB.name, atom_id_molA, "Aromatic_ring", centroidA.x, centroidA.y, centroidA.z,
+                           atom_id_molB, "Aromatic_ring", centroidB.x, centroidB.y, centroidB.z,
+                           "Pi Stacking", distance, protA_ligB);
                 }
             }
         }
     }
+}
+
 
  void findMetalCoordination(const Molecule& molA, const Molecule& molB, const FoundPatterns& molA_patterns, const FoundPatterns& molB_patterns, const RDKit::Conformer& conformer_molA, const RDKit::Conformer& conformer_molB, const bool protA_ligB, const bool printInteractions) {
     auto tmpA = molA_patterns.patternMatches.find(Pattern::Metal);
