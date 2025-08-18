@@ -387,21 +387,8 @@ void printFoundPatterns(FoundPatterns foundPatterns){
  * @param smiles If true, prints the SMILES string of the molecule.
  */
 void printMolOverview(RDKit::ROMol mol, bool smiles) {
-    // Numero di atomi std::cout << "Numero di atomi: " << mol.getNumAtoms() << std::endl;
-    // Numero di legami
     std::cout << "Numero di legami: " << mol.getNumBonds() << std::endl;
-
-    /*
-    // Formula molecolare
-    std::string formula = RDKit::Descriptors::calcMolFormula(mol);
-    std::cout << "Formula molecolare: " << formula << std::endl;
-
-    // Peso molecolare
-    double mw = RDKit::Descriptors::calcExactMW(mol);
-    std::cout << "Peso molecolare: " << mw << std::endl;
-    */
-
-    // Rappresentazione SMILES
+    
     if(smiles){
         std::string smiles = RDKit::MolToSmiles(mol);
         std::cout << "SMILES: " << smiles << std::endl;
@@ -447,11 +434,11 @@ std::string removeFileExtension(const std::string& filename) {
     if(protA_ligB){ // If molA contains the protein and molB the ligand
         //Creation of PROTEIN_ATOM_ID
         const RDKit::Atom *atomA = molA.mol->getAtomWithIdx(indx_molA);
-        if(atomA->getMonomerInfo() && atomA->getMonomerInfo()->getMonomerType() == RDKit::AtomMonomerInfo::PDBRESIDUE){ //Checks that there is MonomerInfo in this atom NB. the second condition is for additional safty but can be removed
-            const RDKit::AtomPDBResidueInfo *pdbInfo = static_cast<const RDKit::AtomPDBResidueInfo*>(atomA->getMonomerInfo());  //since there is no AtomPDBResidueInfo getter available a cast is needed
+        if(atomA->getMonomerInfo() && atomA->getMonomerInfo()->getMonomerType() == RDKit::AtomMonomerInfo::PDBRESIDUE){ //Checks that there is MonomerInfo in this atom
+            const RDKit::AtomPDBResidueInfo *pdbInfo = static_cast<const RDKit::AtomPDBResidueInfo*>(atomA->getMonomerInfo());  //since there is no AtomPDBResidueInfo getter available we cast
             atom_id_prot = pdbInfo->getChainId() + "." + pdbInfo->getResidueName() + std::to_string(pdbInfo->getResidueNumber()) + "." + pdbInfo->getName();    // Combines the desired values for the protein atom in a string
         }else{
-            atom_id_prot = "Error: " + std::to_string(indx_molA) + "(" + atomA->getSymbol() + ")" + " no correct MonomerInfo"; // prints Error and some basic info to identify the atom 
+            atom_id_prot = "Error: " + std::to_string(indx_molA) + "(" + atomA->getSymbol() + ")" + " no correct MonomerInfo";
             std::cout<< "Error: " + std::to_string(indx_molA) + "(" + atomA->getSymbol() + ")" + " has no correct MonomerInfo.";
         }
         //Cration of LIGAND_ATOM_ID
@@ -495,7 +482,7 @@ float dotProduct(const RDGeom::Point3D &vect_a, const RDGeom::Point3D &vect_b) {
  * @param vect The vector to calculate the norm for.
  * @return float The length of the vector.
  */
-float norm(const RDGeom::Point3D &vect) { //calculates the norm of a vector
+float norm(const RDGeom::Point3D &vect) {
     return sqrt(vect.x * vect.x + vect.y * vect.y + vect.z * vect.z);
 }
 
@@ -508,18 +495,6 @@ float norm(const RDGeom::Point3D &vect) { //calculates the norm of a vector
 bool isVectorNull(RDGeom::Point3D &v) {
     return v.length() == 0;
 }
-
-// void lineIntersection(float m1, float m2, float q1, float q2, RDGeom::Point3D* intersection){
-//     float x, y;
-
-//     if(m1 == m2) intersection = nullptr;
-
-//     x = (q2 - q2) / (m1 - m2);
-//     y = m1*x + q1;
-
-//     intersection->x = x;
-//     intersection->y = y;
-// }
 
 /**
  * @brief Calculates the rotation angle around the Y-axis for a given 3D vector.
@@ -580,20 +555,20 @@ void rotateX(RDGeom::Point3D* p, float theta) {
  * @param b2 Second point of the second segment
  * @return bool True if the segments intersect, false otherwise.
  */
-bool doSegmentsIntersect(RDGeom::Point3D &a1, RDGeom::Point3D &b1, RDGeom::Point3D &a2, RDGeom::Point3D &b2){ //checks if two COMPLANAR segments intersect
+bool doSegmentsIntersect(RDGeom::Point3D &a1, RDGeom::Point3D &b1, RDGeom::Point3D &a2, RDGeom::Point3D &b2){
     RDGeom::Point3D a1a2 = a1 - a2;
     RDGeom::Point3D b1b2 = b1 - b2;
     RDGeom::Point3D a1b1 = a1 - b1;
 
-    double a =  a1a2.x, b = -b1b2.x, c = a1a2.y, d = -b1b2.y; // e = a1a2.z, f = -b1b2.z; //fill the coeficients in the matrix rapresenting the equations
-    double det = a * d - b * c; //calculates the det of the matrix to check if there are solutions
+    double a =  a1a2.x, b = -b1b2.x, c = a1a2.y, d = -b1b2.y;
+    double determinant = a * d - b * c; 
 
-    if(fabs(det) < 1e-10) return false; //checks if the det = 0 it means that there are no solutions the segments are or parallel or the same segment
+    if(fabs(determinant) < 1e-10) return false; //checks if the determinant = 0 it means that there are no solutions the segments are or parallel or the same segment
 
-    double t = (d * a1b1.x -b * a1b1.y) / det; //solves the parametric equation using Cramer's rule
-    double s = (-c * a1b1.x + a * a1b1.y) / det;
+    double t = (d * a1b1.x -b * a1b1.y) / determinant; //solves the equation using Cramer's rule
+    double s = (-c * a1b1.x + a * a1b1.y) / determinant;
 
-    return (t >= 0 && t<= 1 && s >= 0 && s <= 1); //checks that the intersection point is within both segments
+    return (t >= 0 && t<= 1 && s >= 0 && s <= 1);
 }
 
 /**
@@ -606,7 +581,7 @@ bool doSegmentsIntersect(RDGeom::Point3D &a1, RDGeom::Point3D &b1, RDGeom::Point
  * @param pos_c Third point
  * @return RDGeom::Point3D The normal vector to the plane defined by the three points.
  */
-RDGeom::Point3D calculateNormalVector(RDGeom::Point3D &pos_a, RDGeom::Point3D &pos_b, RDGeom::Point3D &pos_c){  // calculates the normal vector to the plane identified by the 3 points in input (assuming they are not in line)
+RDGeom::Point3D calculateNormalVector(RDGeom::Point3D &pos_a, RDGeom::Point3D &pos_b, RDGeom::Point3D &pos_c){
     RDGeom::Point3D vect_ab = pos_b - pos_a;
     RDGeom::Point3D vect_ac = pos_c - pos_a;
 
@@ -625,10 +600,6 @@ RDGeom::Point3D calculateNormalVector(RDGeom::Point3D &pos_a, RDGeom::Point3D &p
 float calculateDistance(RDGeom::Point2D &pos_a, RDGeom::Point2D &pos_b){ 
     return (pos_a - pos_b).length();
 }
-
-// float calculateDistance(RDGeom::Point3D &pos_a, RDGeom::Point3D &pos_b){  //calculates euclidian distance between 2 points located in a 3D space
-//     return (pos_a - pos_b).length();
-// }
 
 /**
  * @brief Calculates the Euclidean distance between two points in 3D space.
@@ -661,22 +632,18 @@ float calculateDistance(RDGeom::Point3D &p1, RDGeom::Point3D &p2, RDGeom::Point3
     RDGeom::Point3D normal = calculateNormalVector(p1, p2, p3);
 
     if(isVectorNull(normal)){
-        return -1; //if the three points are aligned the funtions returns -1
+        return -1;
     }
 
     normal.normalize();
 
-    double D = -(normal.x * p1.x + normal.y * p1.y + normal.z * p1.z); //caluclates the D coefficient of the plane equation
+    double D = -(normal.x * p1.x + normal.y * p1.y + normal.z * p1.z);
 
-    // distance formula
     double distance = std::abs(normal.x * point.x + normal.y * point.y + normal.z * point.z + D) / 
                       std::sqrt(normal.x * normal.x + normal.y * normal.y + normal.z * normal.z);
 
     return distance;
 }
-
-
-//Having three points located in a 3D space, imagine them forming a triangle: this function calculates the angle in degreeson of the vertex pos_a 
 
 /**
  * @brief Calculates the angle in degrees between three points in 3D space.
@@ -715,7 +682,7 @@ bool isAngleInRange(float angle, float minAngle, float maxAngle){
  * @param pos_points_ring A vector of 3D points
  * @return RDGeom::Point3D The centroid of the points.
  */
-RDGeom::Point3D calculateCentroid(std::vector<RDGeom::Point3D>& pos_points_ring){   // calculates the centroid for a vector of 3D points
+RDGeom::Point3D calculateCentroid(std::vector<RDGeom::Point3D>& pos_points_ring){
     RDGeom::Point3D centroid(0, 0, 0);
     
     for(const auto& point : pos_points_ring){
@@ -741,7 +708,7 @@ RDGeom::Point3D calculateCentroid(std::vector<RDGeom::Point3D>& pos_points_ring)
 float calculateVectorAngle(const RDGeom::Point3D& vect_a, const RDGeom::Point3D& vect_b){
     const double na = std::sqrt(vect_a.x*vect_a.x + vect_a.y*vect_a.y + vect_a.z*vect_a.z);
     const double nb = std::sqrt(vect_b.x*vect_b.x + vect_b.y*vect_b.y + vect_b.z*vect_b.z);
-    if (na < 1e-20 || nb < 1e-20) return 0.0f; // evita NaN su vettori quasi nulli
+    if (na < 1e-20 || nb < 1e-20) return 0.0f; // avoids NaN on almost zero vectors
     double c = (vect_a.x*vect_b.x + vect_a.y*vect_b.y + vect_a.z*vect_b.z) / (na * nb);
     if (c > 1.0) c = 1.0;
     else if (c < -1.0) c = -1.0;
@@ -757,7 +724,7 @@ float calculateVectorAngle(const RDGeom::Point3D& vect_a, const RDGeom::Point3D&
  * @param vect_b Second vector
  * @return float The angle in degrees between the two vectors.
  */
-float calculateActualVectorAngle(RDGeom::Point3D &vect_a, RDGeom::Point3D &vect_b){ //calculates the angle in degrees between two vectors
+float calculateActualVectorAngle(RDGeom::Point3D &vect_a, RDGeom::Point3D &vect_b){
     return std::acos(dotProduct(vect_a, vect_b) / ((norm(vect_a)) * (norm(vect_b))) * 180 / M_PI);
 }
 
@@ -767,7 +734,7 @@ float calculateActualVectorAngle(RDGeom::Point3D &vect_a, RDGeom::Point3D &vect_
  * @param value The value to check
  * @return bool True if the value is greater than or equal to 90, false otherwise.
  */
-bool isGreaterThenNinety(float value){ //takes a value, returns true if its greater or equal to 90, false if not
+bool isGreaterThenNinety(float value){
     return value >= 90 ? true : false;
 }
 /** @} */
@@ -1123,12 +1090,11 @@ void findPiStacking(const Molecule& molA, const Molecule& molB,
         for (const auto& p : matchA) pts.push_back(conformer_molA.getAtomPos(p.second));
         ringsA_points.push_back(pts);
         centroidsA.push_back(calculateCentroid(ringsA_points.back()));
-        // Normale da 3 atomi adiacenti (come GPU: 0,1,2)
         RDGeom::Point3D nA = calculateNormalVector(ringsA_points.back().at(0),
                                                    ringsA_points.back().at(1),
                                                    ringsA_points.back().at(2));
         normalsA.push_back(nA);
-        ringA_id.push_back(matchA.back().second); // ring id allineato alla GPU
+        ringA_id.push_back(matchA.back().second);
     }
 
     // Prepara anelli B
@@ -1164,11 +1130,11 @@ void findPiStacking(const Molecule& molA, const Molecule& molB,
             RDGeom::Point3D BA = cA - cB;
 
             const float distance    = calculateDistance(cA, cB);
-            const float planesAngle = calculateVectorAngle(nA, nB); // [0,90]° grazie a |cos| + clamp
-            const float angleA      = calculateVectorAngle(nA, AB); // nA ↔ A→B
-            const float angleB      = calculateVectorAngle(nB, BA); // nB ↔ B→A (equivalente ad |cos|)
+            const float planesAngle = calculateVectorAngle(nA, nB);
+            const float angleA      = calculateVectorAngle(nA, AB);
+            const float angleB      = calculateVectorAngle(nB, BA);
 
-            // ---- SANDWICH ----
+            // SANDWICH
             if (distance <= DISTANCE_SANDWICH &&
                 isAngleInRange(planesAngle, MIN_PLANES_ANGLE_SANDWICH, MAX_PLANES_ANGLE_SANDWICH) &&
                 isAngleInRange(angleA,      MIN_NORMAL_CENTROID_ANGLE_SANDWICH, MAX_NORMAL_CENTROID_ANGLE_SANDWICH) &&
@@ -1182,13 +1148,13 @@ void findPiStacking(const Molecule& molA, const Molecule& molB,
                 continue;
             }
 
-            // ---- T-SHAPE (+ inside-polygon con parità dispari) ----
+            // T-SHAPE
             if (distance <= DISTANCE_TSHAPE &&
                 isAngleInRange(planesAngle, MIN_PLANES_ANGLE_TSHAPE, MAX_PLANES_ANGLE_TSHAPE) &&
                 isAngleInRange(angleA,      MIN_NORMAL_CENTROID_ANGLE_TSHAPE, MAX_NORMAL_CENTROID_ANGLE_TSHAPE) &&
                 isAngleInRange(angleB,      MIN_NORMAL_CENTROID_ANGLE_TSHAPE, MAX_NORMAL_CENTROID_ANGLE_TSHAPE))
             {
-                const bool inside = centroidInsideRing(cB, ringsA_points[i], nA); // proiezione + ray-casting
+                const bool inside = centroidInsideRing(cB, ringsA_points[i], nA);
                 if (inside) {
                     getProtLigAtomID(molA, molB, ringA_id[i], ringB_id[j], atom_id_molA, atom_id_molB, protA_ligB);
                     std::cout << "Pi Stacking - T-SHAPE\n";
@@ -1328,11 +1294,9 @@ void identifySubstructs(Molecule& molecule, FoundPatterns &foundPatterns){
             if(smartsPattern.pattern == Pattern::Aromatic_ring && foundPatterns.patternMatches.find(Pattern::Aromatic_ring) != foundPatterns.patternMatches.end()){ //if others aromatic rings where already found
                 foundPatterns.patternMatches[Pattern::Aromatic_ring].insert(foundPatterns.patternMatches[Pattern::Aromatic_ring].end(), tmpMatchesVector.begin(), tmpMatchesVector.end()); //append tmpMatchesVector to the end of the already found aromatic rings
             }
-            // else foundPatterns.patternMatches[static_cast<Pattern>(i)] = tmpMatchesVector;
             else foundPatterns.patternMatches[smartsPattern.pattern] = tmpMatchesVector;
         }
         delete patternMol;
-        //TODO: maybe its a good idea to also clean the tmpMatchesVector
     }
 }
 /** @} */
@@ -1353,8 +1317,6 @@ static inline void sanitize_light_inplace(RDKit::RWMol &rw) {
         RDKit::MolOps::SANITIZE_SETCONJUGATION |
         RDKit::MolOps::SANITIZE_SETHYBRIDIZATION |
         RDKit::MolOps::SANITIZE_SYMMRINGS;
-
-    // firma corretta: (mol, failedOp[out], ops[in], catchErrors)
     RDKit::MolOps::sanitizeMol(rw, failedOp, ops);
 }
 
@@ -1392,7 +1354,6 @@ void input(char **argv, int argc, std::vector<Molecule> &molVector) {
         }
         fseek(file, 0, SEEK_SET);
 
-        // usa size_t per confrontarsi con fread() che ritorna size_t
         size_t fileSize = static_cast<size_t>(fileSizeLong);
 
         fileContent = static_cast<char*>(malloc(fileSize + 1));
@@ -1416,20 +1377,20 @@ void input(char **argv, int argc, std::vector<Molecule> &molVector) {
         std::unique_ptr<RDKit::ROMol> mol;
 
         try {
-            // Parse SENZA sanitize e SENZA rimuovere H (per evitare eccezioni di valenza)
+            // Parse without sanitize e without removing H
             if (i == 1) {
                 // PROTEINA (PDB)
-                mol.reset(RDKit::PDBBlockToMol(fileContent, /*sanitize=*/false, /*removeHs=*/false));
+                mol.reset(RDKit::PDBBlockToMol(fileContent, false, false)); // (content, sinitize, remove H)
             } else {
                 // LIGANDO (MOL2)
-                mol.reset(RDKit::Mol2BlockToMol(fileContent, /*sanitize=*/false, /*removeHs=*/false));
+                mol.reset(RDKit::Mol2BlockToMol(fileContent, false, false));
             }
             if (!mol) throw std::runtime_error("RDKit returned null molecule");
 
             // Passa a RWMol per le operazioni MolOps
             RDKit::RWMol rw(*mol);
 
-            // sanitize "leggera" (inizializza anche le RingInfo)
+            // sanitize più leggera (inizializza anche le RingInfo)
             try {
                 sanitize_light_inplace(rw);
             } catch (const std::exception &se) {
@@ -1437,8 +1398,7 @@ void input(char **argv, int argc, std::vector<Molecule> &molVector) {
                           << " -> " << se.what() << "\n";
             }
 
-            // Aggiungi H (in-place). addCoords=true crea coord. per H se mancano.
-            RDKit::MolOps::addHs(rw, /*explicitOnly=*/false, /*addCoords=*/true);
+            RDKit::MolOps::addHs(rw, false, true); // (rows, explicitOnly, addCoords)
 
             // Torna a ROMol per lo storage
             mol = std::make_unique<RDKit::ROMol>(rw);
@@ -1473,7 +1433,7 @@ void input(char **argv, int argc, std::vector<Molecule> &molVector) {
  * @param argv Array of C-style strings representing file paths
  * @return int Exit code
  */
-int main(int argc, char *argv[]) {  // First argument: PDB file, then a non fixed number of Mol2 files
+int main(int argc, char *argv[]) {
 
     NVTX_PUSH("TotalProgram");
 
@@ -1485,15 +1445,6 @@ int main(int argc, char *argv[]) {  // First argument: PDB file, then a non fixe
 
     //the CSV file is created and inicialized with the HEADER line in the main
     initializeFile("interactions.csv");
-
-
-    /*To print on CSV file with output function use:
-    outputFile.open("interactions.csv", std::ios::app);
-    output(ligandName, proteinAtomId, proteinPatterns, proteinX, proteinY, proteinZ,
-       ligandAtomId, ligandPattern, ligandX, ligandY, ligandZ,
-       interactionType, interactionDistance, outputFile);
-    outputFile.close();
-    */
 
     // Prints the files passed from line (argc, argv)
     if(argc >= 2){
