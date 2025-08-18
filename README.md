@@ -20,7 +20,7 @@ The project is a command line tool for protein-ligand interaction analysis. Give
 
 ## GPU Acceleration (Overview)
 
-_TODO:_ 
+The GPU backend accelerates the hot spot where the program evaluates the Cartesian products of protein/ligand feature pairs for each interaction type (hydrophobic, hydrogen bond, halogen bond, ionic, π-stacking, metal coordination). RDKit supplies the detected features; ring centroids and normals are precomputed on the CPU. On the device, a 2D grid of threads tiles the A×B pair space and applies early distance cutoffs and cosine-based angle windows to avoid unnecessary `sqrt`/`acos`. Data movement is minimized by keeping ligand-side arrays resident on the GPU and streaming protein chunks from pinned host memory; optional multiple streams overlap transfers and kernel execution. Kernels write distances for valid pairs and sentinel values otherwise; the host then scans results and emits CSV rows. In practice, offload the complex, geometry-heavy checks to the GPU and keep simple distance-only interactions on the CPU when input sizes are small.
 
 ## Intermolecular Interactions
 
